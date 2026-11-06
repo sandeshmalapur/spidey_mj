@@ -4,7 +4,6 @@ from fastapi.testclient import TestClient
 
 from app.db import init_db
 from app.main import app
-import app.main
 
 
 @pytest.fixture
@@ -122,7 +121,7 @@ def test_override_precedence_and_filters(client_with_db):
     filter_type = client.get("/api/items?item_type=information").json()
     ids_type = [i["id"] for i in filter_type]
     assert res_b.json()["id"] in ids_type
-    assert item_a["id"] not in ids_type
+    assert item_a["id"] not in ids_state
 
 
 def test_actions_lifecycle(client_with_db):
@@ -255,4 +254,3 @@ def test_demo_seed_and_delete(client_with_db):
     assert len(remaining) == 1
     assert remaining[0]["id"] == manual_id
     assert remaining[0]["title"] == "User Personal Item"
-

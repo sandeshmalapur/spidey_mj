@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from app.config import DATABASE_PATH
+import app.config
 
 SCHEMA_SOURCES_SQL = """
 CREATE TABLE IF NOT EXISTS sources (
@@ -59,7 +59,7 @@ def utc_now_iso() -> str:
 
 
 def resolve_db_path(custom_path: Optional[str] = None) -> Path:
-    path = custom_path or DATABASE_PATH
+    path = custom_path or app.config.DATABASE_PATH
     return Path(path).resolve()
 
 
