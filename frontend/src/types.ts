@@ -55,6 +55,8 @@ export interface Item {
   completed_at: string | null;
   source_status?: string | null;
   deadline_changed_at?: string | null;
+  next_reminder_at?: string | null;
+  next_reminder_kind?: string | null;
 }
 
 export interface SyncCounts {
@@ -145,5 +147,27 @@ export interface ItemUpdateParams {
   priority_override?: Priority | null;
   kind?: ItemKind;
   item_type?: ItemType;
+}
+
+export interface NotificationLogEntry {
+  id: number;
+  item_id: number | null;
+  at: string;
+  channel: 'ntfy' | 'local';
+  title: string;
+  body: string;
+  outcome: string;
+  error?: string | null;
+}
+
+export interface NotificationStatus {
+  ntfy_configured: boolean;
+  notifications_enabled: boolean;
+  quiet_hours_enabled: boolean;
+  quiet_hours_start: string;
+  quiet_hours_end: string;
+  urgent_bypass_quiet: boolean;
+  max_per_hour: number;
+  recent_count: number;
 }
 

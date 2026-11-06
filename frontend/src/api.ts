@@ -9,6 +9,8 @@ import type {
   SyncResult,
   ClassroomSyncResult,
   SyncStatus,
+  NotificationLogEntry,
+  NotificationStatus,
 } from './types';
 
 const API_BASE_URL =
@@ -154,4 +156,21 @@ export const api = {
       message: string;
       counts: { total: number; reanalyzed: number; updated: number; errors: number };
     }>('/api/reanalyze', { method: 'POST' }),
+
+  getNotifications: (limit = 50) =>
+    request<NotificationLogEntry[]>(`/api/notifications?limit=${limit}`),
+
+  getNotificationStatus: () =>
+    request<NotificationStatus>('/api/notifications/status'),
+
+  sendTestNotification: () =>
+    request<{ status: string; channel: string; outcome: string; error?: string | null }>('/api/notifications/test', {
+      method: 'POST',
+    }),
+
+  updateNotificationSettings: (notifications_enabled: boolean) =>
+    request<NotificationStatus>('/api/notifications/settings', {
+      method: 'POST',
+      body: JSON.stringify({ notifications_enabled }),
+    }),
 };

@@ -132,6 +132,8 @@ class ItemResponse(BaseModel):
     user_edited_fields: List[str] = Field(default_factory=list)
     source_status: Optional[str] = None
     deadline_changed_at: Optional[str] = None
+    next_reminder_at: Optional[str] = None
+    next_reminder_kind: Optional[str] = None
 
     @classmethod
     def from_row(cls, row: dict[str, Any]) -> "ItemResponse":
@@ -193,6 +195,8 @@ class ItemResponse(BaseModel):
             user_edited_fields=edited_list,
             source_status=row.get("source_status"),
             deadline_changed_at=row.get("deadline_changed_at"),
+            next_reminder_at=row.get("next_reminder_at"),
+            next_reminder_kind=row.get("next_reminder_kind"),
         )
 
 
@@ -262,4 +266,43 @@ class SyncResultResponse(BaseModel):
     message: str
     counts: SyncCounts
     error_message: Optional[str] = None
+
+
+class NotificationLogEntry(BaseModel):
+    id: int
+    item_id: Optional[int] = None
+    at: str
+    channel: str
+    title: str
+    body: str
+    outcome: str
+    error: Optional[str] = None
+
+
+class NotificationStatusResponse(BaseModel):
+    ntfy_configured: bool
+    notifications_enabled: bool
+    quiet_hours_enabled: bool
+    quiet_hours_start: str
+    quiet_hours_end: str
+    urgent_bypass_quiet: bool
+    max_per_hour: int
+    recent_count: int
+
+
+class NotificationSettingsUpdate(BaseModel):
+    notifications_enabled: bool
+
+
+class ReminderResponse(BaseModel):
+    id: int
+    item_id: int
+    kind: str
+    scheduled_for: str
+    status: str
+    dedupe_key: Optional[str] = None
+    reason: Optional[str] = None
+    created_at: str
+    sent_at: Optional[str] = None
+
 

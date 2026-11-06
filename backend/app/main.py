@@ -22,6 +22,9 @@ from app.models import (
     ItemState,
     ItemType,
     ItemUpdate,
+    NotificationLogEntry,
+    NotificationSettingsUpdate,
+    NotificationStatusResponse,
     Priority,
     ReanalyzeCounts,
     ReanalyzeResultResponse,
@@ -33,6 +36,12 @@ from app.models import (
 )
 from app.priority import recompute_priority
 from app.integrations.sync_service import get_sync_status, sync_gmail
+from app.reminders import (
+    get_notification_status,
+    plan_or_replan_item_reminders,
+    send_test_notification,
+    set_notifications_enabled,
+)
 from app.scheduler import sync_scheduler
 
 
@@ -88,6 +97,26 @@ def _fetch_item_or_404(conn: sqlite3.Connection, item_id: int) -> dict[str, Any]
             detail=f"Item with id {item_id} not found",
         )
     return dict(row)
+
+
+def _attach_next_reminder(conn: sqlite3.Connection, row_dict: dict[str, Any]) -> dict[str, Any]:
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT scheduled_for, kind FROM reminders
+        WHERE item_id = ? AND status = 'pending'
+        ORDER BY scheduled_for ASC, id ASC LIMIT 1;
+        """,
+        (row_dict["id"],),
+    )
+    rem = cur.fetchone()
+    if rem:
+        row_dict["next_reminder_at"] = rem["scheduled_for"]
+        row_dict["next_reminder_kind"] = rem["kind"]
+    else:
+        row_dict["next_reminder_at"] = None
+        row_dict["next_reminder_kind"] = None
+    return row_dict
 
 
 def _recompute_and_persist_priority(conn: sqlite3.Connection, row_dict: dict[str, Any], now: datetime) -> dict[str, Any]:
@@ -168,6 +197,28 @@ def get_items(
 
         # Sort by id descending
         filtered.sort(key=lambda x: x["id"], reverse=True)
+
+        # Batch attach next reminder
+        cur.execute(
+            """
+            SELECT item_id, scheduled_for, kind
+            FROM reminders
+            WHERE status = 'pending'
+            ORDER BY scheduled_for ASC, id ASC;
+            """
+        )
+        reminder_map: dict[int, tuple[str, str]] = {}
+        for rem in cur.fetchall():
+            iid = rem["item_id"]
+            if iid not in reminder_map:
+                reminder_map[iid] = (rem["scheduled_for"], rem["kind"])
+
+        for r in filtered:
+            if r["id"] in reminder_map:
+                r["next_reminder_at"], r["next_reminder_kind"] = reminder_map[r["id"]]
+            else:
+                r["next_reminder_at"], r["next_reminder_kind"] = None, None
+
         return [ItemResponse.from_row(r) for r in filtered]
     finally:
         conn.close()
@@ -179,6 +230,8 @@ def get_item(item_id: int) -> ItemResponse:
     try:
         row = _fetch_item_or_404(conn, item_id)
         row = _recompute_and_persist_priority(conn, row, datetime.now(timezone.utc))
+        row = _attach_next_reminder(conn, row)
+        return ItemResponse.from_row(row)
         return ItemResponse.from_row(row)
     finally:
         conn.close()
@@ -262,6 +315,9 @@ def create_item(payload: ItemCreate) -> ItemResponse:
             )
 
         row = _fetch_item_or_404(conn, new_id)
+        plan_or_replan_item_reminders(row, conn, now_dt)
+        conn.commit()
+        row = _attach_next_reminder(conn, row)
         return ItemResponse.from_row(row)
     finally:
         conn.close()
@@ -355,6 +411,9 @@ def ingest_manual(payload: ManualIngestRequest, response: Response) -> IngestRes
         new_id = cur.lastrowid
         response.status_code = status.HTTP_201_CREATED
         new_row = _fetch_item_or_404(conn, new_id)
+        plan_or_replan_item_reminders(new_row, conn, now_dt)
+        conn.commit()
+        new_row = _attach_next_reminder(conn, new_row)
         return IngestResponse(duplicate=False, item=ItemResponse.from_row(new_row))
     finally:
         conn.close()
@@ -405,7 +464,11 @@ def patch_item(item_id: int, payload: ItemUpdate) -> ItemResponse:
         conn.commit()
 
         row = _fetch_item_or_404(conn, item_id)
-        row = _recompute_and_persist_priority(conn, row, datetime.now(timezone.utc))
+        now_dt = datetime.now(timezone.utc)
+        row = _recompute_and_persist_priority(conn, row, now_dt)
+        plan_or_replan_item_reminders(row, conn, now_dt)
+        conn.commit()
+        row = _attach_next_reminder(conn, row)
         return ItemResponse.from_row(row)
     finally:
         conn.close()
@@ -423,7 +486,11 @@ def acknowledge_item(item_id: int) -> ItemResponse:
         )
         conn.commit()
         row = _fetch_item_or_404(conn, item_id)
-        row = _recompute_and_persist_priority(conn, row, datetime.now(timezone.utc))
+        now_dt = datetime.now(timezone.utc)
+        row = _recompute_and_persist_priority(conn, row, now_dt)
+        plan_or_replan_item_reminders(row, conn, now_dt)
+        conn.commit()
+        row = _attach_next_reminder(conn, row)
         return ItemResponse.from_row(row)
     finally:
         conn.close()
@@ -441,7 +508,11 @@ def snooze_item(item_id: int, payload: SnoozeRequest) -> ItemResponse:
         )
         conn.commit()
         row = _fetch_item_or_404(conn, item_id)
-        row = _recompute_and_persist_priority(conn, row, datetime.now(timezone.utc))
+        now_dt = datetime.now(timezone.utc)
+        row = _recompute_and_persist_priority(conn, row, now_dt)
+        plan_or_replan_item_reminders(row, conn, now_dt)
+        conn.commit()
+        row = _attach_next_reminder(conn, row)
         return ItemResponse.from_row(row)
     finally:
         conn.close()
@@ -459,7 +530,11 @@ def start_item(item_id: int) -> ItemResponse:
         )
         conn.commit()
         row = _fetch_item_or_404(conn, item_id)
-        row = _recompute_and_persist_priority(conn, row, datetime.now(timezone.utc))
+        now_dt = datetime.now(timezone.utc)
+        row = _recompute_and_persist_priority(conn, row, now_dt)
+        plan_or_replan_item_reminders(row, conn, now_dt)
+        conn.commit()
+        row = _attach_next_reminder(conn, row)
         return ItemResponse.from_row(row)
     finally:
         conn.close()
@@ -477,7 +552,11 @@ def complete_item(item_id: int) -> ItemResponse:
         )
         conn.commit()
         row = _fetch_item_or_404(conn, item_id)
-        row = _recompute_and_persist_priority(conn, row, datetime.now(timezone.utc))
+        now_dt = datetime.now(timezone.utc)
+        row = _recompute_and_persist_priority(conn, row, now_dt)
+        plan_or_replan_item_reminders(row, conn, now_dt)
+        conn.commit()
+        row = _attach_next_reminder(conn, row)
         return ItemResponse.from_row(row)
     finally:
         conn.close()
@@ -495,6 +574,12 @@ def cancel_item(item_id: int) -> ItemResponse:
         )
         conn.commit()
         row = _fetch_item_or_404(conn, item_id)
+        now_dt = datetime.now(timezone.utc)
+        row = _recompute_and_persist_priority(conn, row, now_dt)
+        plan_or_replan_item_reminders(row, conn, now_dt)
+        conn.commit()
+        row = _attach_next_reminder(conn, row)
+        return ItemResponse.from_row(row)
         row = _recompute_and_persist_priority(conn, row, datetime.now(timezone.utc))
         return ItemResponse.from_row(row)
     finally:
@@ -583,6 +668,12 @@ def seed_demo():
             )
             seeded_count += 1
 
+        conn.commit()
+
+        # Plan reminders for seeded demo items
+        cur.execute("SELECT * FROM items WHERE is_demo = 1;")
+        for demo_row in cur.fetchall():
+            plan_or_replan_item_reminders(dict(demo_row), conn, now_dt)
         conn.commit()
 
         cur.execute("SELECT COUNT(*) FROM items WHERE is_demo = 1;")
@@ -747,6 +838,9 @@ def reanalyze_item(item_id: int) -> ItemResponse:
         provider = RulesProvider()
         _reanalyze_item_logic(conn, dict(row), provider, now_dt)
         refetched = _fetch_item_or_404(conn, item_id)
+        plan_or_replan_item_reminders(refetched, conn, now_dt)
+        conn.commit()
+        refetched = _attach_next_reminder(conn, refetched)
         return ItemResponse.from_row(refetched)
     finally:
         conn.close()
@@ -778,9 +872,11 @@ def reanalyze_all() -> ReanalyzeResultResponse:
             try:
                 _, num_changes = _reanalyze_item_logic(conn, r, provider, now_dt)
                 if num_changes > 0:
+                    plan_or_replan_item_reminders(r, conn, now_dt)
                     updated += 1
             except Exception:
                 errors += 1
+        conn.commit()
 
         msg = f"Re-analyzed {reanalyzed} items: {updated} updated, {errors} errors."
         return ReanalyzeResultResponse(
@@ -793,5 +889,60 @@ def reanalyze_all() -> ReanalyzeResultResponse:
                 errors=errors,
             ),
         )
+    finally:
+        conn.close()
+
+
+# -------------------------------------------------------------
+# Notifications & Reminders Endpoints
+# -------------------------------------------------------------
+@app.get("/api/notifications", response_model=List[NotificationLogEntry])
+def get_notifications(limit: int = Query(50, ge=1, le=200)) -> List[NotificationLogEntry]:
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT id, item_id, at, channel, title, body, outcome, error
+            FROM notification_log
+            ORDER BY at DESC, id DESC
+            LIMIT ?;
+            """,
+            (limit,),
+        )
+        rows = [dict(r) for r in cur.fetchall()]
+        return [NotificationLogEntry(**r) for r in rows]
+    finally:
+        conn.close()
+
+
+@app.post("/api/notifications/test")
+def trigger_test_notification() -> dict[str, Any]:
+    conn = get_connection()
+    try:
+        with conn:
+            return send_test_notification(conn)
+    finally:
+        conn.close()
+
+
+@app.get("/api/notifications/status", response_model=NotificationStatusResponse)
+def get_notifications_status() -> NotificationStatusResponse:
+    conn = get_connection()
+    try:
+        st = get_notification_status(conn)
+        return NotificationStatusResponse(**st)
+    finally:
+        conn.close()
+
+
+@app.post("/api/notifications/settings", response_model=NotificationStatusResponse)
+def update_notification_settings(payload: NotificationSettingsUpdate) -> NotificationStatusResponse:
+    conn = get_connection()
+    try:
+        with conn:
+            set_notifications_enabled(payload.notifications_enabled, conn)
+            st = get_notification_status(conn)
+        return NotificationStatusResponse(**st)
     finally:
         conn.close()

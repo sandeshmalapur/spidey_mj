@@ -20,6 +20,7 @@ from app.integrations.classroom_client import BaseClassroomClient, ClassroomAuth
 from app.integrations.classroom_sync import sync_classroom
 from app.integrations.gmail_client import BaseGmailClient, GmailAuthError
 from app.integrations.sync_service import sync_gmail
+from app.reminders import BaseNtfyClient, run_reminder_tick
 from app.models import (
     ClassroomSyncCounts,
     ClassroomSyncResultResponse,
@@ -35,6 +36,7 @@ RECONNECT_COMMAND = GMAIL_RECONNECT_COMMAND
 CLASSROOM_RECONNECT_COMMAND = "python -m app.integrations.google_auth classroom"
 MAX_BACKOFF_MINUTES = 30
 JOB_ID = "auto_sync_all"
+REMINDER_JOB_ID = "reminder_tick"
 
 
 class SyncSchedulerManager:
@@ -46,12 +48,17 @@ class SyncSchedulerManager:
         clock: Optional[Callable[[], datetime]] = None,
         gmail_client_factory: Optional[Callable[[], BaseGmailClient]] = None,
         classroom_client_factory: Optional[Callable[[], BaseClassroomClient]] = None,
+        reminder_tick_seconds: Optional[int] = None,
+        ntfy_client_factory: Optional[Callable[[], BaseNtfyClient]] = None,
     ) -> None:
         self.clock: Callable[[], datetime] = clock or (lambda: datetime.now(timezone.utc))
         self.gmail_client_factory: Optional[Callable[[], BaseGmailClient]] = gmail_client_factory
         self.classroom_client_factory: Optional[Callable[[], BaseClassroomClient]] = classroom_client_factory
+        self.ntfy_client_factory: Optional[Callable[[], BaseNtfyClient]] = ntfy_client_factory
         self.interval_minutes: int = interval_minutes or getattr(app.config, "SYNC_INTERVAL_MINUTES", 5)
+        self.reminder_tick_seconds: int = reminder_tick_seconds or getattr(app.config, "REMINDER_TICK_SECONDS", 60)
         self.auto_sync_enabled: bool = getattr(app.config, "SYNC_ENABLED", True)
+        self.scheduler_enabled: bool = getattr(app.config, "SCHEDULER_ENABLED", True)
 
         # Shared synchronization lock between background job & manual triggers
         self.sync_lock = threading.Lock()
@@ -170,6 +177,17 @@ class SyncSchedulerManager:
             replace_existing=True,
         )
 
+        # Add reminder tick job (default every 60 seconds)
+        reminder_trigger = IntervalTrigger(seconds=self.reminder_tick_seconds)
+        self.scheduler.add_job(
+            self._reminder_tick_listener,
+            trigger=reminder_trigger,
+            id=REMINDER_JOB_ID,
+            max_instances=1,
+            coalesce=True,
+            replace_existing=True,
+        )
+
         try:
             self.scheduler.start()
         except Exception as e:
@@ -207,12 +225,38 @@ class SyncSchedulerManager:
 
     def _job_listener(self) -> None:
         """Target called by APScheduler for scheduled runs."""
-        if not self.auto_sync_enabled:
+        if not self.auto_sync_enabled or not self.scheduler_enabled:
             return
         # Run Gmail sync
         self.run_sync(is_manual=False)
         # Run Classroom sync
         self.run_classroom_sync(is_manual=False)
+
+    def _reminder_tick_listener(self) -> None:
+        """Target called by APScheduler for reminder ticks."""
+        if not self.scheduler_enabled:
+            return
+        try:
+            self.run_reminder_tick()
+        except Exception as e:
+            logger.warning(f"Error during reminder tick: {e}")
+
+    def run_reminder_tick(
+        self,
+        now_dt: Optional[datetime] = None,
+        ntfy_client: Optional[BaseNtfyClient] = None,
+    ) -> Dict[str, Any]:
+        """Execute one reminder tick recomputing priority and dispatching due reminders."""
+        now_val = now_dt or self.now()
+        conn = get_connection()
+        try:
+            with conn:
+                active_client = ntfy_client or (
+                    self.ntfy_client_factory() if self.ntfy_client_factory else None
+                )
+                return run_reminder_tick(conn=conn, now_utc=now_val, ntfy_client=active_client)
+        finally:
+            conn.close()
 
     def run_sync(
         self,

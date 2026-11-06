@@ -23,6 +23,7 @@ from app.models import (
     SyncStatusResponse,
 )
 from app.priority import recompute_priority
+from app.reminders import plan_or_replan_item_reminders
 
 
 def get_sync_status(conn: Optional[sqlite3.Connection] = None) -> SyncStatusResponse:
@@ -278,6 +279,12 @@ def sync_gmail(
                         )
 
                     conn.commit()
+                    # Replan reminders for the updated thread item
+                    cur.execute("SELECT * FROM items WHERE id = ?;", (existing_dict["id"],))
+                    up_row = cur.fetchone()
+                    if up_row:
+                        plan_or_replan_item_reminders(dict(up_row), conn, now_dt)
+                        conn.commit()
                     counts.updated += 1
                     continue
 
@@ -337,6 +344,13 @@ def sync_gmail(
                 ),
             )
             conn.commit()
+            new_id = cur.lastrowid
+            if new_id:
+                cur.execute("SELECT * FROM items WHERE id = ?;", (new_id,))
+                new_row = cur.fetchone()
+                if new_row:
+                    plan_or_replan_item_reminders(dict(new_row), conn, now_dt)
+                    conn.commit()
             counts.created += 1
 
         completed_iso = utc_now_iso()

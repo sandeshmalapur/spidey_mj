@@ -88,6 +88,35 @@ CREATE TABLE IF NOT EXISTS settings (
 );
 """
 
+SCHEMA_REMINDERS_SQL = """
+CREATE TABLE IF NOT EXISTS reminders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_id INTEGER NOT NULL,
+    kind TEXT NOT NULL,
+    scheduled_for TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    dedupe_key TEXT UNIQUE,
+    reason TEXT,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    sent_at TEXT,
+    FOREIGN KEY(item_id) REFERENCES items(id) ON DELETE CASCADE
+);
+"""
+
+SCHEMA_NOTIFICATION_LOG_SQL = """
+CREATE TABLE IF NOT EXISTS notification_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_id INTEGER,
+    at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    channel TEXT NOT NULL,
+    title TEXT NOT NULL,
+    body TEXT NOT NULL,
+    outcome TEXT NOT NULL,
+    error TEXT,
+    FOREIGN KEY(item_id) REFERENCES items(id) ON DELETE SET NULL
+);
+"""
+
 SCHEMA_INDEX_SQL = """
 CREATE UNIQUE INDEX IF NOT EXISTS idx_items_source_unique
 ON items(source_type, source_id)
@@ -95,6 +124,10 @@ WHERE source_id IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_items_thread_id ON items(thread_id);
 CREATE INDEX IF NOT EXISTS idx_item_events_item_id ON item_events(item_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_reminders_dedupe ON reminders(dedupe_key);
+CREATE INDEX IF NOT EXISTS idx_reminders_item_status ON reminders(item_id, status);
+CREATE INDEX IF NOT EXISTS idx_reminders_scheduled ON reminders(scheduled_for, status);
+CREATE INDEX IF NOT EXISTS idx_notification_log_at ON notification_log(at);
 """
 
 
@@ -178,6 +211,8 @@ def init_db(custom_path: Optional[str] = None) -> str:
             conn.executescript(SCHEMA_ITEM_EVENTS_SQL)
             conn.executescript(SCHEMA_SYNC_HISTORY_SQL)
             conn.executescript(SCHEMA_SETTINGS_SQL)
+            conn.executescript(SCHEMA_REMINDERS_SQL)
+            conn.executescript(SCHEMA_NOTIFICATION_LOG_SQL)
             conn.executescript(SCHEMA_INDEX_SQL)
     finally:
         conn.close()

@@ -7,6 +7,8 @@ import type {
   ItemState,
   ItemType,
   ItemUpdateParams,
+  NotificationLogEntry,
+  NotificationStatus,
   Priority,
   SyncStatus,
 } from './types';
@@ -91,6 +93,62 @@ export default function App() {
   // Re-analyze state
   const [reanalyzingAll, setReanalyzingAll] = useState<boolean>(false);
   const [reanalyzingItem, setReanalyzingItem] = useState<boolean>(false);
+
+  // Reminders & Notifications state
+  const [showNotificationsModal, setShowNotificationsModal] = useState<boolean>(false);
+  const [notificationLogs, setNotificationLogs] = useState<NotificationLogEntry[]>([]);
+  const [notifStatus, setNotifStatus] = useState<NotificationStatus | null>(null);
+  const [testingNotification, setTestingNotification] = useState<boolean>(false);
+  const [togglingNotif, setTogglingNotif] = useState<boolean>(false);
+  const [testNotifResult, setTestNotifResult] = useState<{
+    status: string;
+    channel: string;
+    outcome: string;
+    error?: string | null;
+  } | null>(null);
+
+  // Load notification logs and status
+  const loadNotificationInfo = async () => {
+    try {
+      const [logs, st] = await Promise.all([
+        api.getNotifications(30),
+        api.getNotificationStatus(),
+      ]);
+      setNotificationLogs(logs);
+      setNotifStatus(st);
+    } catch {
+      // Ignore background load error
+    }
+  };
+
+  const handleToggleNotifications = async () => {
+    if (!notifStatus) return;
+    setTogglingNotif(true);
+    try {
+      const updated = await api.updateNotificationSettings(!notifStatus.notifications_enabled);
+      setNotifStatus(updated);
+      setActionSuccess(updated.notifications_enabled ? 'Notifications enabled' : 'Notifications paused');
+      setTimeout(() => setActionSuccess(null), 3000);
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to update notification settings');
+    } finally {
+      setTogglingNotif(false);
+    }
+  };
+
+  const handleSendTestNotification = async () => {
+    setTestingNotification(true);
+    setTestNotifResult(null);
+    try {
+      const res = await api.sendTestNotification();
+      setTestNotifResult(res);
+      await loadNotificationInfo();
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'Test notification failed');
+    } finally {
+      setTestingNotification(false);
+    }
+  };
 
   // Check health
   const checkHealth = async () => {
@@ -196,9 +254,11 @@ export default function App() {
     checkHealth();
     loadItems();
     loadSyncStatus();
+    loadNotificationInfo();
 
     const interval = setInterval(() => {
       loadSyncStatus();
+      loadNotificationInfo();
     }, 10000);
     return () => clearInterval(interval);
   }, []);
@@ -603,6 +663,16 @@ export default function App() {
           >
             {reanalyzingAll ? '⏳ Re-analyzing...' : '🔄 Re-analyze all'}
           </button>
+          <button
+            className="btn btn-outline"
+            onClick={() => {
+              setShowNotificationsModal(true);
+              loadNotificationInfo();
+            }}
+            title="View notification settings and delivery logs"
+          >
+            🔔 Notifications {notifStatus && !notifStatus.notifications_enabled ? '(Off)' : ''}
+          </button>
         </div>
         <div className="toolbar-right">
           <button className="btn btn-outline" onClick={handleSeedDemo}>
@@ -877,6 +947,11 @@ export default function App() {
                       {item.deadline_status === 'ambiguous' && (
                         <span className="badge badge-warning">Needs confirmation</span>
                       )}
+                      {item.next_reminder_at && item.state !== 'completed' && item.state !== 'cancelled' && (
+                        <span className="card-next-reminder" title={`Next reminder scheduled for ${item.next_reminder_at}`}>
+                          ⏰ Next: {new Date(item.next_reminder_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      )}
                     </div>
 
                     <div className="card-source-area" onClick={(e) => e.stopPropagation()}>
@@ -1119,6 +1194,18 @@ export default function App() {
                     {formatDateTimeWithTz(selectedItem.completed_at)}
                   </p>
                 )}
+                <p>
+                  <strong>Next Reminder:</strong>{' '}
+                  {selectedItem.next_reminder_at && selectedItem.state !== 'completed' && selectedItem.state !== 'cancelled' ? (
+                    <span className="reminder-highlight">
+                      ⏰ {formatDateTimeWithTz(selectedItem.next_reminder_at)} ({selectedItem.next_reminder_kind})
+                    </span>
+                  ) : selectedItem.state === 'completed' || selectedItem.state === 'cancelled' ? (
+                    <span className="text-muted">None (item closed)</span>
+                  ) : (
+                    <span className="text-muted">No reminder scheduled</span>
+                  )}
+                </p>
               </div>
 
               {selectedItem.summary && (
@@ -1382,6 +1469,153 @@ export default function App() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Notifications Panel Modal */}
+      {showNotificationsModal && (
+        <div className="modal-overlay" role="dialog" aria-modal="true">
+          <div className="modal-card modal-large">
+            <div className="modal-header">
+              <h3>🔔 Reminders &amp; Notification Center</h3>
+              <button className="btn-icon" onClick={() => setShowNotificationsModal(false)}>
+                ✕
+              </button>
+            </div>
+
+            <div className="notif-modal-content">
+              {/* Status Header Cards */}
+              <div className="notif-status-grid">
+                <div className="notif-card">
+                  <span className="notif-card-label">System Status</span>
+                  <div className="notif-card-value">
+                    {notifStatus?.notifications_enabled ? (
+                      <span className="badge badge-success">✓ Active</span>
+                    ) : (
+                      <span className="badge badge-neutral">Paused</span>
+                    )}
+                  </div>
+                  <button
+                    className="btn btn-outline btn-xs"
+                    onClick={handleToggleNotifications}
+                    disabled={togglingNotif}
+                  >
+                    {togglingNotif ? 'Updating...' : notifStatus?.notifications_enabled ? 'Pause Notifications' : 'Enable Notifications'}
+                  </button>
+                </div>
+
+                <div className="notif-card">
+                  <span className="notif-card-label">ntfy Channel</span>
+                  <div className="notif-card-value">
+                    {notifStatus?.ntfy_configured ? (
+                      <span className="badge badge-ntfy">✓ Configured</span>
+                    ) : (
+                      <span className="badge badge-warning">Local only</span>
+                    )}
+                  </div>
+                  <span className="notif-card-hint">
+                    {notifStatus?.ntfy_configured ? 'Pushing to ntfy server' : 'Set NTFY_TOPIC in .env to enable'}
+                  </span>
+                </div>
+
+                <div className="notif-card">
+                  <span className="notif-card-label">Quiet Hours</span>
+                  <div className="notif-card-value">
+                    <strong>{notifStatus?.quiet_hours_start || '22:00'} - {notifStatus?.quiet_hours_end || '07:00'}</strong>
+                  </div>
+                  <span className="notif-card-hint">
+                    {notifStatus?.urgent_bypass_quiet ? 'Urgent alerts bypass' : 'Deferred until morning'}
+                  </span>
+                </div>
+
+                <div className="notif-card">
+                  <span className="notif-card-label">Frequency Cap</span>
+                  <div className="notif-card-value">
+                    <strong>Max {notifStatus?.max_per_hour || 5} / hour</strong>
+                  </div>
+                  <span className="notif-card-hint">
+                    {notifStatus?.recent_count || 0} sent in last hour
+                  </span>
+                </div>
+              </div>
+
+              {/* Action Banner */}
+              <div className="notif-test-bar">
+                <div>
+                  <strong>Test Notification Delivery</strong>
+                  <p className="notif-subtext">Sends a minimal test message and records it in the delivery log.</p>
+                </div>
+                <button
+                  className="btn btn-primary"
+                  onClick={handleSendTestNotification}
+                  disabled={testingNotification}
+                >
+                  {testingNotification ? '⏳ Sending Test...' : '🔔 Send Test Alert'}
+                </button>
+              </div>
+
+              {testNotifResult && (
+                <div className={`alert ${testNotifResult.status === 'delivered' ? 'alert-success' : 'alert-warning'}`}>
+                  <span>
+                    Test notification {testNotifResult.outcome} via <strong>{testNotifResult.channel.toUpperCase()}</strong> channel.
+                    {testNotifResult.error && ` (${testNotifResult.error})`}
+                  </span>
+                  <button className="alert-close" onClick={() => setTestNotifResult(null)}>×</button>
+                </div>
+              )}
+
+              {/* Logs Table */}
+              <div className="notif-logs-section">
+                <h4>Recent Notification Logs</h4>
+                {notificationLogs.length === 0 ? (
+                  <p className="empty-logs">No notification logs recorded yet.</p>
+                ) : (
+                  <div className="table-responsive">
+                    <table className="logs-table">
+                      <thead>
+                        <tr>
+                          <th>Time</th>
+                          <th>Channel</th>
+                          <th>Title</th>
+                          <th>Outcome</th>
+                          <th>Error / Details</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {notificationLogs.map((log) => (
+                          <tr key={log.id}>
+                            <td className="log-time">{formatDateTimeWithTz(log.at)}</td>
+                            <td>
+                              <span className={`badge badge-${log.channel}`}>
+                                {log.channel.toUpperCase()}
+                              </span>
+                            </td>
+                            <td className="log-title">{log.title}</td>
+                            <td>
+                              <span className={`badge badge-outcome badge-${log.outcome}`}>
+                                {log.outcome}
+                              </span>
+                            </td>
+                            <td className="log-error">{log.error || '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowNotificationsModal(false)}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
