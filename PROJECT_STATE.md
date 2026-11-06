@@ -1,9 +1,21 @@
 # ClassMail J - Project State
 
 ## Current Milestone
-- Milestone 10: Google Sign-In (OpenID Connect) & Unified Data Consent (optional single-owner authentication, authorization-code flow with PKCE, server-side session cookies, unified data consent requesting Gmail and Classroom read-only scopes, automatic background first sync, per-source connection state, Google token revocation, and CLI fallback).
+- Milestone 11: Optional OllamaProvider (local LLM extraction provider behind ExtractionProvider interface, prompt injection protection, exact substring verification, rules baseline preservation, sequential sync capping, seamless fallback to RulesProvider, and system diagnostic endpoints).
 
 ## Implemented Features
+- **Optional OllamaProvider (Local LLM Integration)**:
+  - Plug-and-play local AI provider implementing the `ExtractionProvider` interface alongside `RulesProvider`.
+  - Configurable via environment variables: `EXTRACTION_PROVIDER` (`rules`|`ollama`, default `rules`), `OLLAMA_URL` (default `http://127.0.0.1:11434`), `OLLAMA_MODEL` (default `llama3:latest`), `OLLAMA_TIMEOUT_SECONDS` (default 60), `OLLAMA_MAX_INPUT_CHARS` (default 6000), `OLLAMA_MAX_ITEMS_PER_SYNC` (default 5), and `OLLAMA_ALLOW_REMOTE` (default `false`).
+  - Safe by default: rejects non-localhost URLs unless `OLLAMA_ALLOW_REMOTE=true`. Never pulls or downloads models automatically.
+  - Strict Prompt Guardrails: email/announcement content placed inside clearly delimited `<UNTRUSTED_DATA>` blocks explicitly instructing the model to treat input as untrusted data and never follow embedded instructions.
+  - Model asks only for: `item_type`, `kind`, `title`, `summary`, `required_actions`, `deadline_phrase`, and `duration_minutes`. It is never asked for priority or timestamps.
+  - Strict Pydantic validation (`OllamaOutputSchema`): validates enum types, bounds strings, strips control characters, and ignores unknown fields.
+  - Exact Substring Check: `deadline_phrase` returned by the model is strictly validated to be an exact substring of the normalized original text; hallucinated phrases are discarded.
+  - Deterministic Rules Baseline & Merge Policy: rules baseline is always computed first. Model can NEVER set `deadline_at`, `deadline_status`, or `priority`. Confirmed rules deadlines can never be altered. If rules had none or ambiguous deadline, model's verified phrase is parsed by the rules candidate parser. If model disagrees on `item_type` or `kind`, confidence is lowered.
+  - Complete Fallback: on timeout, network failure, missing model, invalid JSON, or schema violation, gracefully falls back to the deterministic rules output and records the fallback reason in item events and `extraction_provider` column. Never raises into sync or ingest loops.
+  - Sync Safety: calls model sequentially and caps to `OLLAMA_MAX_ITEMS_PER_SYNC` per sync run; remaining items use rules.
+  - Diagnostics & UI: `GET /api/ollama/status` endpoint, Ollama health diagnostic in System Diagnostics modal, and provider indicator ("Provider: Ollama" or "Provider: rules") in Item Detail view.
 - **Google OpenID Connect (OIDC) & Unified Data Consent**:
   - Optional single-owner authentication toggleable via `AUTH_ENABLED` (default `false` keeps application completely unauthenticated for local development).
   - Authorization-code flow with PKCE (`code_verifier`, `code_challenge` via S256) and single-use server-side `state` and `nonce` stored in SQLite `auth_states` table.

@@ -11,9 +11,10 @@ import sqlite3
 from datetime import datetime, timezone
 from typing import Optional
 
+import app.config
 from app.config import GMAIL_MAX_MESSAGES, GMAIL_QUERY, TIMEZONE
 from app.db import get_connection, utc_now_iso
-from app.extraction import RulesProvider
+from app.extraction import OllamaProvider, RulesProvider, get_extraction_provider
 from app.integrations.gmail_client import BaseGmailClient, GmailAuthError, GmailClient
 from app.models import (
     DeadlineStatus,
@@ -140,7 +141,9 @@ def sync_gmail(
             error_message=err_msg,
         )
 
-    provider = RulesProvider()
+    provider = get_extraction_provider()
+    rules_provider = RulesProvider()
+    ollama_processed_count = 0
     cur = conn.cursor()
 
     try:
@@ -183,8 +186,16 @@ def sync_gmail(
                 except Exception:
                     pass
 
-            # 4. Extract structured fields with RulesProvider
-            ext_res = provider.extract(
+            # 4. Extract structured fields with provider (respecting sync cap)
+            active_provider = provider
+            if isinstance(provider, OllamaProvider):
+                max_ollama = getattr(app.config, "OLLAMA_MAX_ITEMS_PER_SYNC", 5)
+                if ollama_processed_count >= max_ollama:
+                    active_provider = rules_provider
+                else:
+                    ollama_processed_count += 1
+
+            ext_res = active_provider.extract(
                 text=msg.body_text,
                 subject=msg.subject,
                 sender=msg.sender,
@@ -310,13 +321,13 @@ def sync_gmail(
                 INSERT INTO items (
                     title, item_type, kind, summary, priority, priority_reason, priority_override,
                     extraction_confidence, state, deadline_text, deadline_at, deadline_status,
-                    links, source_type, source_id, thread_id, source_title, sender, received_at, evidence,
-                    is_demo, created_at, updated_at
+                    duration_minutes, links, source_type, source_id, thread_id, source_title, sender, received_at, evidence,
+                    is_demo, created_at, updated_at, extraction_provider
                 ) VALUES (
                     ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?,
-                    ?, 'gmail', ?, ?, ?, ?, ?, ?,
-                    0, ?, ?
+                    ?, ?, 'gmail', ?, ?, ?, ?, ?, ?,
+                    0, ?, ?, ?
                 );
                 """,
                 (
@@ -332,6 +343,7 @@ def sync_gmail(
                     ext_res.deadline_text,
                     ext_res.deadline_at,
                     ext_res.deadline_status.value,
+                    ext_res.duration_minutes,
                     links_json,
                     msg_id,
                     msg.thread_id,
@@ -341,6 +353,7 @@ def sync_gmail(
                     msg.body_text,
                     now_iso,
                     now_iso,
+                    ext_res.extraction_provider,
                 ),
             )
             conn.commit()

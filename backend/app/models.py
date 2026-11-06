@@ -139,6 +139,7 @@ class ItemResponse(BaseModel):
     deadline_changed_at: Optional[str] = None
     next_reminder_at: Optional[str] = None
     next_reminder_kind: Optional[str] = None
+    extraction_provider: Optional[str] = "rules"
 
     @classmethod
     def from_row(cls, row: dict[str, Any]) -> "ItemResponse":
@@ -203,6 +204,7 @@ class ItemResponse(BaseModel):
             deadline_changed_at=row.get("deadline_changed_at"),
             next_reminder_at=row.get("next_reminder_at"),
             next_reminder_kind=row.get("next_reminder_kind"),
+            extraction_provider=row.get("extraction_provider", "rules"),
         )
 
 
@@ -312,5 +314,15 @@ class ReminderResponse(BaseModel):
     reason: Optional[str] = None
     created_at: str
     sent_at: Optional[str] = None
+
+
+class OllamaStatusResponse(BaseModel):
+    provider: str
+    reachable: bool
+    model_present: bool
+    configured_model: str
+    url: str
+    available_models: List[str] = Field(default_factory=list)
+    error: Optional[str] = None
 
 

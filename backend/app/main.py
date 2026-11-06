@@ -40,7 +40,7 @@ from app import config as app_config
 from app.config import ALLOWED_ORIGINS, APP_VERSION, TIMEZONE, validate_auth_config
 from app.db import check_db_health, get_connection, init_db, utc_now_iso
 from app.demo_data import get_demo_items
-from app.extraction import RulesProvider
+from app.extraction import RulesProvider, check_ollama_status, get_extraction_provider
 from app.models import (
     ClassroomSyncCounts,
     ClassroomSyncResultResponse,
@@ -53,6 +53,7 @@ from app.models import (
     ItemUpdate,
     NotificationLogEntry,
     NotificationSettingsUpdate,
+    OllamaStatusResponse,
     NotificationStatusResponse,
     Priority,
     ReanalyzeCounts,
@@ -91,6 +92,7 @@ class SystemStatusResponse(BaseModel):
     last_sync_gmail: Optional[str] = None
     last_sync_classroom: Optional[str] = None
     version: str
+    ollama: Optional[OllamaStatusResponse] = None
 
 
 class ManualIngestRequest(BaseModel):
@@ -572,8 +574,8 @@ def ingest_manual(payload: ManualIngestRequest, response: Response) -> IngestRes
             existing_dict = _recompute_and_persist_priority(conn, dict(existing), now_dt)
             return IngestResponse(duplicate=True, item=ItemResponse.from_row(existing_dict))
 
-        # Extract using RulesProvider
-        provider = RulesProvider()
+        # Extract using configured provider (rules or ollama)
+        provider = get_extraction_provider()
         ext_res = provider.extract(
             text=payload.text,
             subject=payload.source_title,
@@ -600,12 +602,12 @@ def ingest_manual(payload: ManualIngestRequest, response: Response) -> IngestRes
                 title, item_type, kind, summary, priority, priority_reason, priority_override,
                 extraction_confidence, state, deadline_text, deadline_at, deadline_status,
                 duration_minutes, links, source_type, source_id, source_title, sender, received_at, evidence,
-                is_demo, created_at, updated_at
+                is_demo, created_at, updated_at, extraction_provider
             ) VALUES (
                 ?, ?, ?, ?, ?, ?, ?,
                 ?, ?, ?, ?, ?,
                 ?, ?, ?, ?, ?, ?, ?, ?,
-                ?, ?, ?
+                ?, ?, ?, ?
             );
             """,
             (
@@ -632,6 +634,7 @@ def ingest_manual(payload: ManualIngestRequest, response: Response) -> IngestRes
                 0,
                 now_iso,
                 now_iso,
+                ext_res.extraction_provider,
             ),
         )
         conn.commit()
@@ -1010,7 +1013,14 @@ def get_system_status_endpoint() -> SystemStatusResponse:
         last_sync_gmail=sync_st.last_synced_at,
         last_sync_classroom=sync_st.classroom_last_synced_at,
         version=APP_VERSION,
+        ollama=check_ollama_status(),
     )
+
+
+@app.get("/api/ollama/status", response_model=OllamaStatusResponse)
+def get_ollama_status_endpoint() -> OllamaStatusResponse:
+    """Return status of Ollama connection, configured model, and availability."""
+    return OllamaStatusResponse(**check_ollama_status())
 
 
 @app.delete("/api/demo")
@@ -1064,7 +1074,7 @@ def update_sync_settings_endpoint(payload: SyncSettingsUpdate) -> SyncStatusResp
 def _reanalyze_item_logic(
     conn: sqlite3.Connection,
     item_dict: dict[str, Any],
-    provider: RulesProvider,
+    provider: Any,
     now_dt: datetime,
 ) -> Tuple[dict[str, Any], int]:
     evidence = item_dict.get("evidence")
@@ -1110,6 +1120,7 @@ def _reanalyze_item_logic(
         ("deadline_at", ext_res.deadline_at, item_dict.get("deadline_at")),
         ("deadline_status", ext_res.deadline_status.value, item_dict.get("deadline_status")),
         ("duration_minutes", ext_res.duration_minutes, item_dict.get("duration_minutes")),
+        ("extraction_provider", ext_res.extraction_provider, item_dict.get("extraction_provider")),
     ]
 
     update_fields: List[str] = []
@@ -1165,7 +1176,7 @@ def reanalyze_item(item_id: int) -> ItemResponse:
     try:
         row = _fetch_item_or_404(conn, item_id)
         now_dt = datetime.now(timezone.utc)
-        provider = RulesProvider()
+        provider = get_extraction_provider()
         _reanalyze_item_logic(conn, dict(row), provider, now_dt)
         refetched = _fetch_item_or_404(conn, item_id)
         plan_or_replan_item_reminders(refetched, conn, now_dt)
@@ -1181,7 +1192,7 @@ def reanalyze_all() -> ReanalyzeResultResponse:
     conn = get_connection()
     try:
         now_dt = datetime.now(timezone.utc)
-        provider = RulesProvider()
+        provider = get_extraction_provider()
         cur = conn.cursor()
         cur.execute(
             """

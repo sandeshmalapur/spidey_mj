@@ -120,6 +120,13 @@ Copy `.env.example` to `.env` in the root or `backend/` directory:
 | `CATCHUP_GRACE_MINUTES` | `15` | Window to dispatch overdue reminders marked late before skipping |
 | `REMINDER_OFFSETS_ASSIGNMENT_MINUTES` | `1440,180,45` | Minutes before deadline for assignment reminders (e.g. 24h, 3h, 45m) |
 | `REMINDER_OFFSETS_EVENT_MINUTES` | `1440,60,15` | Minutes before start for event/interview reminders (e.g. 24h, 1h, 15m) |
+| `EXTRACTION_PROVIDER` | `rules` | Extraction engine: `rules` (default) or `ollama` |
+| `OLLAMA_URL` | `http://127.0.0.1:11434` | Local Ollama API server endpoint |
+| `OLLAMA_MODEL` | `llama3:latest` | Local LLM model tag for extraction |
+| `OLLAMA_TIMEOUT_SECONDS` | `60` | HTTP timeout for Ollama calls |
+| `OLLAMA_MAX_INPUT_CHARS` | `6000` | Input character truncation limit for LLM prompt |
+| `OLLAMA_MAX_ITEMS_PER_SYNC` | `5` | Maximum new items per sync processed with LLM (rest use rules) |
+| `OLLAMA_ALLOW_REMOTE` | `false` | Security check: reject non-localhost URLs unless explicitly `true` |
 
 ---
 
@@ -162,7 +169,18 @@ For optional browser sign-in and in-app connection management:
    > [!IMPORTANT]
    > ClassMail J uses a **single-owner allowlist** design for local, self-hosted deployments. Multi-user data isolation is intentionally out of scope. If an account other than `OWNER_EMAIL` attempts to sign in, access is denied (HTTP 403) and no tokens or sessions are stored.
 
-### 4. Run OAuth CLI Flows (Fallback)
+### 4. Optional Local LLM Extraction (Ollama)
+
+To enable local LLM extraction enhancement:
+1. Install [Ollama](https://ollama.ai) and pull your preferred model (e.g. `ollama run llama3:latest`).
+2. Set in your `.env`:
+   ```bash
+   EXTRACTION_PROVIDER=ollama
+   OLLAMA_MODEL=llama3:latest
+   ```
+3. ClassMail J will enrich titles, summaries, and action items using Ollama while deterministically enforcing rules deadlines and falling back to rules without disruption if Ollama is offline.
+
+### 5. Run OAuth CLI Flows (Fallback)
 
 Execute the loopback authentication CLI from your terminal (authentication never occurs inside a web request):
 

@@ -48,7 +48,8 @@ CREATE TABLE IF NOT EXISTS items (
     user_edited_fields TEXT NOT NULL DEFAULT '[]',
     source_status TEXT,
     deadline_changed_at TEXT,
-    duration_minutes INTEGER
+    duration_minutes INTEGER,
+    extraction_provider TEXT DEFAULT 'rules'
 );
 """
 
@@ -245,6 +246,8 @@ def init_db(custom_path: Optional[str] = None) -> str:
                         conn.execute("ALTER TABLE items ADD COLUMN deadline_changed_at TEXT;")
                     if "duration_minutes" not in existing_cols:
                         conn.execute("ALTER TABLE items ADD COLUMN duration_minutes INTEGER;")
+                    if "extraction_provider" not in existing_cols:
+                        conn.execute("ALTER TABLE items ADD COLUMN extraction_provider TEXT DEFAULT 'rules';")
             else:
                 conn.executescript(SCHEMA_ITEMS_SQL)
 

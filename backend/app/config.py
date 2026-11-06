@@ -90,6 +90,29 @@ CATCHUP_GRACE_MINUTES = int(os.getenv("CATCHUP_GRACE_MINUTES", "15"))
 REMINDER_OFFSETS_ASSIGNMENT_MINUTES = os.getenv("REMINDER_OFFSETS_ASSIGNMENT_MINUTES", "1440,180,45")
 REMINDER_OFFSETS_EVENT_MINUTES = os.getenv("REMINDER_OFFSETS_EVENT_MINUTES", "1440,60,15")
 
+# Ollama Extraction Provider Configuration
+EXTRACTION_PROVIDER = os.getenv("EXTRACTION_PROVIDER", "rules").lower()
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3:latest")
+OLLAMA_TIMEOUT_SECONDS = float(os.getenv("OLLAMA_TIMEOUT_SECONDS", "60"))
+OLLAMA_MAX_INPUT_CHARS = int(os.getenv("OLLAMA_MAX_INPUT_CHARS", "6000"))
+OLLAMA_MAX_ITEMS_PER_SYNC = int(os.getenv("OLLAMA_MAX_ITEMS_PER_SYNC", "5"))
+OLLAMA_ALLOW_REMOTE = os.getenv("OLLAMA_ALLOW_REMOTE", "false").lower() in ("true", "1", "yes")
+
+
+def validate_ollama_url(url: str, allow_remote: bool = False) -> str:
+    """Validate Ollama URL: reject non-localhost unless allow_remote is True."""
+    import urllib.parse
+    parsed = urllib.parse.urlparse(url)
+    hostname = (parsed.hostname or "").lower()
+    if not allow_remote and hostname not in ("localhost", "127.0.0.1", "::1"):
+        raise ValueError(
+            f"OLLAMA_URL '{url}' is not a localhost address. "
+            "Set OLLAMA_ALLOW_REMOTE=true to allow remote Ollama endpoints."
+        )
+    return url
+
+
 _raw_origins = os.getenv("FRONTEND_ORIGIN", "http://localhost:5173,http://127.0.0.1:5173")
 ALLOWED_ORIGINS = [
     origin.strip()

@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import app.config
 from app.db import get_connection, utc_now_iso
-from app.extraction import RulesProvider
+from app.extraction import OllamaProvider, RulesProvider, get_extraction_provider
 from app.integrations.classroom_client import (
     BaseClassroomClient,
     ClassroomAuthError,
@@ -181,7 +181,9 @@ def sync_classroom(
             counts=counts,
         )
 
-    provider = RulesProvider()
+    provider = get_extraction_provider()
+    rules_provider = RulesProvider()
+    ollama_processed_count = 0
     cur = conn.cursor()
     course_errors: List[str] = []
 
@@ -246,12 +248,12 @@ def sync_classroom(
                             title, item_type, kind, summary, priority, priority_reason,
                             extraction_confidence, state, deadline_text, deadline_at, deadline_status,
                             links, source_type, source_id, source_title, sender, received_at,
-                            evidence, source_status, is_demo, created_at, updated_at
+                            evidence, source_status, is_demo, created_at, updated_at, extraction_provider
                         ) VALUES (
                             ?, ?, ?, ?, ?, ?,
                             1.0, ?, ?, ?, ?,
                             ?, 'classroom', ?, ?, ?, ?,
-                            ?, ?, 0, ?, ?
+                            ?, ?, 0, ?, ?, 'classroom'
                         );
                         """,
                         (
@@ -407,8 +409,16 @@ def sync_classroom(
                     except Exception:
                         ann_dt = now_dt
 
-                # Run through extraction rules
-                ext_res = provider.extract(
+                # Run through extraction provider (respecting sync cap)
+                active_provider = provider
+                if isinstance(provider, OllamaProvider):
+                    if ollama_processed_count < app.config.OLLAMA_MAX_ITEMS_PER_SYNC:
+                        active_provider = provider
+                        ollama_processed_count += 1
+                    else:
+                        active_provider = rules_provider
+
+                ext_res = active_provider.extract(
                     text=ann.text,
                     subject=f"{course_name} Announcement",
                     sender=course_name,
@@ -440,12 +450,12 @@ def sync_classroom(
                         title, item_type, kind, summary, priority, priority_reason,
                         extraction_confidence, state, deadline_text, deadline_at, deadline_status,
                         links, source_type, source_id, source_title, sender, received_at,
-                        evidence, is_demo, created_at, updated_at
+                        evidence, is_demo, created_at, updated_at, extraction_provider
                     ) VALUES (
                         ?, ?, ?, ?, ?, ?,
                         ?, ?, ?, ?, ?,
                         ?, 'classroom', ?, ?, ?, ?,
-                        ?, 0, ?, ?
+                        ?, 0, ?, ?, ?
                     );
                     """,
                     (
@@ -468,6 +478,7 @@ def sync_classroom(
                         ann.text,
                         now_iso,
                         now_iso,
+                        ext_res.extraction_provider,
                     ),
                 )
                 conn.commit()

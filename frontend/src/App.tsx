@@ -20,6 +20,89 @@ import './App.css';
 
 const localTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
+/* ==========================================================================
+   Minimalist Enterprise SVG Icons (Clean 1.5-2px stroke, no cartoon emojis)
+   ========================================================================== */
+
+const IconSparkle = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+  </svg>
+);
+
+const IconBell = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/>
+    <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>
+  </svg>
+);
+
+const IconSettings = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+    <circle cx="12" cy="12" r="3"/>
+  </svg>
+);
+
+const IconMail = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect width="20" height="16" x="2" y="4" rx="2"/>
+    <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+  </svg>
+);
+
+const IconClassroom = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
+    <path d="M6 12v5c3 3 9 3 12 0v-5"/>
+  </svg>
+);
+
+const IconCheck = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="20 6 9 17 4 12"/>
+  </svg>
+);
+
+const IconClock = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10"/>
+    <polyline points="12 6 12 12 16 14"/>
+  </svg>
+);
+
+const IconCalendar = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect width="18" height="18" x="3" y="4" rx="2" ry="2"/>
+    <line x1="16" x2="16" y1="2" y2="6"/>
+    <line x1="8" x2="8" y1="2" y2="6"/>
+    <line x1="3" x2="21" y1="10" y2="10"/>
+  </svg>
+);
+
+const IconAlert = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+    <line x1="12" y1="9" x2="12" y2="13"/>
+    <line x1="12" y1="17" x2="12.01" y2="17"/>
+  </svg>
+);
+
+const IconShield = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+  </svg>
+);
+
+const IconSync = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+    <path d="M3 3v5h5"/>
+    <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+    <path d="M16 21h5v-5"/>
+  </svg>
+);
+
 function formatDateTimeWithTz(dateStr: string | null | undefined): string {
   if (!dateStr) return '';
   const d = new Date(dateStr);
@@ -29,42 +112,32 @@ function formatDateTimeWithTz(dateStr: string | null | undefined): string {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
-      hour: 'numeric',
+      hour: '2-digit',
       minute: '2-digit',
       timeZoneName: 'short',
     });
   } catch {
-    return d.toLocaleString();
+    return d.toISOString();
   }
 }
 
-function formatKind(kind: string): string {
-  const map: Record<string, string> = {
-    assignment: 'Assignment',
-    assessment: 'Assessment',
-    announcement: 'Announcement',
-    recruiter: 'Recruiter',
-    interview: 'Interview',
-    document_request: 'Document request',
-    event: 'Event',
-    meeting: 'Meeting',
-    routine: 'Routine',
-    other: 'Other',
-  };
-  return map[kind] || kind.replace(/_/g, ' ');
-}
+function getRelativeTimeLabel(dateStr: string | null | undefined): { label: string; isPast: boolean } {
+  if (!dateStr) return { label: '', isPast: false };
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return { label: String(dateStr), isPast: false };
+  const diffMs = d.getTime() - Date.now();
+  const diffMins = Math.round(diffMs / 60000);
+  const diffHours = Math.round(diffMins / 60);
+  const diffDays = Math.round(diffHours / 24);
 
-function getAssessmentStartBy(item: Item): string | null {
-  if (item.kind !== 'assessment') return null;
-  if (!item.duration_minutes) {
-    return 'Add duration to get a start-time reminder';
+  if (diffMs < 0) {
+    if (Math.abs(diffDays) >= 1) return { label: `${Math.abs(diffDays)}d overdue`, isPast: true };
+    if (Math.abs(diffHours) >= 1) return { label: `${Math.abs(diffHours)}h overdue`, isPast: true };
+    return { label: `${Math.abs(diffMins)}m overdue`, isPast: true };
   }
-  if (!item.deadline_at) return null;
-  const d = new Date(item.deadline_at);
-  if (isNaN(d.getTime())) return null;
-  const startBy = new Date(d.getTime() - item.duration_minutes * 60000);
-  const timeStr = startBy.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-  return `Start by ${timeStr}`;
+  if (diffDays >= 1) return { label: `due in ${diffDays}d`, isPast: false };
+  if (diffHours >= 1) return { label: `due in ${diffHours}h`, isPast: false };
+  return { label: `due in ${diffMins}m`, isPast: false };
 }
 
 export default function App() {
@@ -76,7 +149,8 @@ export default function App() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
-  // Filters
+  // Search and Filters
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [priorityFilter, setPriorityFilter] = useState<'all' | Priority>('all');
   const [typeFilter, setTypeFilter] = useState<'all' | ItemType>('all');
   const [stateFilter, setStateFilter] = useState<'all' | ItemState>('all');
@@ -132,6 +206,11 @@ export default function App() {
   const [connections, setConnections] = useState<ConnectionsResponse | null>(null);
   const [checkingAuth, setCheckingAuth] = useState<boolean>(true);
 
+  // System diagnostics modal state
+  const [showSystemStatusModal, setShowSystemStatusModal] = useState<boolean>(false);
+  const [systemStatus, setSystemStatus] = useState<SystemStatusResponse | null>(null);
+  const [loadingSystemStatus, setLoadingSystemStatus] = useState<boolean>(false);
+
   const loadConnections = async () => {
     try {
       const conns = await api.getConnections();
@@ -165,11 +244,6 @@ export default function App() {
     }
   };
 
-  // System status state
-  const [showSystemStatusModal, setShowSystemStatusModal] = useState<boolean>(false);
-  const [systemStatus, setSystemStatus] = useState<SystemStatusResponse | null>(null);
-  const [loadingSystemStatus, setLoadingSystemStatus] = useState<boolean>(false);
-
   const loadSystemStatus = async () => {
     setLoadingSystemStatus(true);
     try {
@@ -182,7 +256,6 @@ export default function App() {
     }
   };
 
-  // Load notification logs and status
   const loadNotificationInfo = async () => {
     try {
       const [logs, st] = await Promise.all([
@@ -225,7 +298,6 @@ export default function App() {
     }
   };
 
-  // Check health
   const checkHealth = async () => {
     try {
       const h = await api.getHealth();
@@ -247,7 +319,6 @@ export default function App() {
     }
   }, [selectedItem?.id]);
 
-  // Load sync status
   const loadSyncStatus = async () => {
     try {
       const s = await api.getSyncStatus();
@@ -260,7 +331,6 @@ export default function App() {
     }
   };
 
-  // Trigger Gmail Sync
   const handleSyncGmail = async () => {
     setSyncing(true);
     setSyncError(null);
@@ -281,7 +351,6 @@ export default function App() {
     }
   };
 
-  // Trigger Google Classroom Sync
   const handleSyncClassroom = async () => {
     setSyncingClassroom(true);
     setSyncError(null);
@@ -302,7 +371,6 @@ export default function App() {
     }
   };
 
-  // Toggle Auto-sync Runtime Setting
   const handleToggleAutoSync = async () => {
     if (!syncStatus) return;
     setTogglingSync(true);
@@ -320,12 +388,10 @@ export default function App() {
     }
   };
 
-  // Load items
   const loadItems = async () => {
     setLoading(true);
     setErrorMessage(null);
     try {
-      // Fetch all items with include_snoozed=true so we can compute accurate tab counts
       const data = await api.getItems({ include_snoozed: true });
       setItems(data);
     } catch (err: unknown) {
@@ -368,7 +434,6 @@ export default function App() {
 
   const hasDemoItems = useMemo(() => items.some((i) => i.is_demo), [items]);
 
-  // Tab counts based on effective_priority
   const counts = useMemo(() => {
     const isVisible = (item: Item) => {
       if (showSnoozed) return true;
@@ -386,69 +451,86 @@ export default function App() {
     };
   }, [items, showSnoozed]);
 
-  // Filtered and sorted items
   const displayedItems = useMemo(() => {
     let result = items.filter((item) => {
-      // Snoozed filter
       if (!showSnoozed && item.snoozed_until) {
         if (new Date(item.snoozed_until).getTime() > Date.now()) {
           return false;
         }
       }
 
-      // Priority tab filter
       if (priorityFilter !== 'all' && item.effective_priority !== priorityFilter) {
         return false;
       }
 
-      // Type filter
       if (typeFilter !== 'all' && item.item_type !== typeFilter) {
         return false;
       }
 
-      // State filter
       if (stateFilter !== 'all' && item.state !== stateFilter) {
         return false;
+      }
+
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        const matchesTitle = item.title.toLowerCase().includes(query);
+        const matchesSummary = item.summary ? item.summary.toLowerCase().includes(query) : false;
+        const matchesSender = item.sender ? item.sender.toLowerCase().includes(query) : false;
+        if (!matchesTitle && !matchesSummary && !matchesSender) {
+          return false;
+        }
       }
 
       return true;
     });
 
-    // Default sort: urgent first, then nearest deadline, then newest
     const priorityWeight: Record<Priority, number> = {
-      urgent: 1,
+      urgent: 3,
       important: 2,
-      normal: 3,
+      normal: 1,
     };
 
     result.sort((a, b) => {
-      const pA = priorityWeight[a.effective_priority] || 99;
-      const pB = priorityWeight[b.effective_priority] || 99;
-      if (pA !== pB) return pA - pB;
+      const pDiff = priorityWeight[b.effective_priority] - priorityWeight[a.effective_priority];
+      if (pDiff !== 0) return pDiff;
 
       if (a.deadline_at && b.deadline_at) {
-        const diff = new Date(a.deadline_at).getTime() - new Date(b.deadline_at).getTime();
-        if (diff !== 0) return diff;
-      } else if (a.deadline_at && !b.deadline_at) {
-        return -1;
-      } else if (!a.deadline_at && b.deadline_at) {
-        return 1;
+        return new Date(a.deadline_at).getTime() - new Date(b.deadline_at).getTime();
       }
+      if (a.deadline_at) return -1;
+      if (b.deadline_at) return 1;
 
-      return b.id - a.id;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
 
     return result;
-  }, [items, priorityFilter, typeFilter, stateFilter, showSnoozed]);
+  }, [items, priorityFilter, typeFilter, stateFilter, showSnoozed, searchQuery]);
 
-  // Actions
-  const runAction = async (actionFn: () => Promise<Item>, msg: string) => {
+  const handleAcknowledge = async (item: Item) => {
     try {
-      setErrorMessage(null);
-      const updated = await actionFn();
-      setActionSuccess(msg);
-      setTimeout(() => setActionSuccess(null), 3000);
-      await loadItems();
+      const updated = await api.acknowledgeItem(item.id);
+      setItems((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
+      if (selectedItem && selectedItem.id === updated.id) {
+        setSelectedItem(updated);
+      }
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to acknowledge item');
+    }
+  };
+
+  const handleStateChange = async (item: Item, newState: ItemState) => {
+    try {
+      let updated: Item;
+      if (newState === 'completed') {
+        updated = await api.completeItem(item.id);
+      } else if (newState === 'in_progress') {
+        updated = await api.startItem(item.id);
+      } else if (newState === 'cancelled') {
+        updated = await api.cancelItem(item.id);
+      } else {
+        updated = await api.reopenItem(item.id);
+      }
+      setItems((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
       if (selectedItem && selectedItem.id === updated.id) {
         setSelectedItem(updated);
       }
@@ -464,30 +546,26 @@ export default function App() {
       untilDate.setDate(untilDate.getDate() + 1);
       untilDate.setHours(9, 0, 0, 0);
     } else {
-      untilDate = new Date(Date.now() + hours * 3600 * 1000);
+      untilDate = new Date(Date.now() + hours * 60 * 60 * 1000);
     }
-    const iso = untilDate.toISOString();
-    runAction(() => api.snoozeItem(item.id, iso), `Snoozed item #${item.id}`);
+
+    api.snoozeItem(item.id, untilDate.toISOString())
+      .then((updated) => {
+        setItems((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
+        if (selectedItem && selectedItem.id === updated.id) {
+          setSelectedItem(updated);
+        }
+      })
+      .catch((err: unknown) => {
+        setErrorMessage(err instanceof Error ? err.message : 'Failed to snooze item');
+      });
   };
 
-  // Demo data handlers
-  const handleSeedDemo = async () => {
-    try {
-      setErrorMessage(null);
-      const res = await api.seedDemo();
-      setActionSuccess(`Demo items loaded (${res.seeded} seeded, total demo: ${res.total_demo})`);
-      setTimeout(() => setActionSuccess(null), 3000);
-      await loadItems();
-    } catch (err: unknown) {
-      setErrorMessage(err instanceof Error ? err.message : 'Failed to seed demo data');
-    }
-  };
-
-  const handleDeleteDemo = async () => {
+  const handleClearDemo = async () => {
     try {
       setErrorMessage(null);
       const res = await api.deleteDemo();
-      setActionSuccess(`Cleared demo data (${res.deleted} deleted)`);
+      setActionSuccess(`Cleared ${res.deleted} demo items.`);
       setTimeout(() => setActionSuccess(null), 3000);
       await loadItems();
       if (selectedItem?.is_demo) setSelectedItem(null);
@@ -500,7 +578,7 @@ export default function App() {
     try {
       setErrorMessage(null);
       const res = await api.resetDemo();
-      setActionSuccess(`Reset demo items (${res.seeded} seeded, total demo: ${res.total_demo})`);
+      setActionSuccess(`Loaded demo academic items (${res.seeded} seeded).`);
       setTimeout(() => setActionSuccess(null), 3000);
       await loadItems();
       if (selectedItem?.is_demo) setSelectedItem(null);
@@ -509,7 +587,6 @@ export default function App() {
     }
   };
 
-  // Re-analyze handlers
   const handleReanalyzeAll = async () => {
     setReanalyzingAll(true);
     try {
@@ -519,7 +596,6 @@ export default function App() {
       setTimeout(() => setActionSuccess(null), 4000);
       await loadItems();
       if (selectedItem) {
-        // Refresh selected item from list if updated
         const refreshed = await api.getItem(selectedItem.id);
         setSelectedItem(refreshed);
       }
@@ -535,10 +611,10 @@ export default function App() {
     try {
       setErrorMessage(null);
       const updatedItem = await api.reanalyzeItem(itemId);
-      setActionSuccess(`Re-analyzed item #${updatedItem.id}`);
-      setTimeout(() => setActionSuccess(null), 3500);
+      setItems((prev) => prev.map((i) => (i.id === updatedItem.id ? updatedItem : i)));
       setSelectedItem(updatedItem);
-      await loadItems();
+      setActionSuccess(`Re-analyzed: "${updatedItem.title}"`);
+      setTimeout(() => setActionSuccess(null), 3000);
     } catch (err: unknown) {
       setErrorMessage(err instanceof Error ? err.message : 'Failed to re-analyze item');
     } finally {
@@ -546,159 +622,89 @@ export default function App() {
     }
   };
 
-  // Open Edit Form
-  const openEdit = (item: Item) => {
+  const handleOpenEdit = (item: Item, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     setEditingItem(item);
     setEditTitle(item.title);
     setEditDeadlineText(item.deadline_text || '');
+    setEditDeadlineAt(item.deadline_at ? item.deadline_at.slice(0, 16) : '');
     setEditDurationMinutes(item.duration_minutes ? String(item.duration_minutes) : '');
+    setEditPriorityOverride(item.priority_override || 'none');
     setEditKind(item.kind);
     setEditItemType(item.item_type);
-    setEditPriorityOverride(item.priority_override || 'none');
-
-    if (item.deadline_at) {
-      const d = new Date(item.deadline_at);
-      if (!isNaN(d.getTime())) {
-        const pad = (n: number) => String(n).padStart(2, '0');
-        const formatted = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-        setEditDeadlineAt(formatted);
-      } else {
-        setEditDeadlineAt('');
-      }
-    } else {
-      setEditDeadlineAt('');
-    }
   };
 
-  const handleSaveEdit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveEdit = async () => {
     if (!editingItem) return;
-
-    let deadlineAtIso: string | null = null;
-    if (editDeadlineAt.trim()) {
-      const parsed = new Date(editDeadlineAt);
-      if (!isNaN(parsed.getTime())) {
-        deadlineAtIso = parsed.toISOString();
-      }
-    }
-
-    let durationVal: number | null = null;
-    if (editDurationMinutes.trim()) {
-      const parsedDur = parseInt(editDurationMinutes.trim(), 10);
-      if (!isNaN(parsedDur) && parsedDur > 0) {
-        durationVal = parsedDur;
-      }
-    }
-
-    const payload: ItemUpdateParams = {
-      title: editTitle.trim(),
-      deadline_text: editDeadlineText.trim() || null,
-      deadline_at: deadlineAtIso,
-      duration_minutes: durationVal,
-      priority_override: editPriorityOverride === 'none' ? null : (editPriorityOverride as Priority),
-      kind: editKind,
-      item_type: editItemType,
-    };
-
     try {
-      const updated = await api.patchItem(editingItem.id, payload);
-      setEditingItem(null);
-      setActionSuccess(`Updated item #${updated.id}`);
-      setTimeout(() => setActionSuccess(null), 3000);
-      await loadItems();
-      if (selectedItem?.id === updated.id) {
+      const updates: ItemUpdateParams = {
+        title: editTitle.trim(),
+        deadline_text: editDeadlineText.trim() || null,
+        deadline_at: editDeadlineAt ? new Date(editDeadlineAt).toISOString() : null,
+        duration_minutes: editDurationMinutes.trim() ? parseInt(editDurationMinutes, 10) : null,
+        priority_override: editPriorityOverride === 'none' ? null : (editPriorityOverride as Priority),
+        kind: editKind,
+        item_type: editItemType,
+      };
+
+      const updated = await api.patchItem(editingItem.id, updates);
+      setItems((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
+      if (selectedItem && selectedItem.id === updated.id) {
         setSelectedItem(updated);
       }
+      setEditingItem(null);
+      setActionSuccess('Item updated successfully');
+      setTimeout(() => setActionSuccess(null), 3000);
     } catch (err: unknown) {
       setErrorMessage(err instanceof Error ? err.message : 'Failed to update item');
     }
   };
 
-  // Handle Manual Paste Submission (Milestone 4: runs rules extraction & priority engine)
-  const handleManualSubmit = async (e: React.FormEvent) => {
+  const handlePasteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!pasteEvidence.trim()) {
-      setErrorMessage('Pasted text is required.');
-      return;
-    }
-
+    if (!pasteEvidence.trim()) return;
     setPasteSubmitting(true);
     setErrorMessage(null);
     try {
       const res = await api.ingestManual({
+        text: pasteEvidence,
         source_title: pasteSourceTitle.trim() || undefined,
         sender: pasteSender.trim() || undefined,
-        text: pasteEvidence.trim(),
       });
 
-      setShowPasteModal(false);
-      setPasteSourceTitle('');
-      setPasteSender('');
-      setPasteEvidence('');
       if (res.duplicate) {
-        setActionSuccess(`Already imported: "${res.item.title}"`);
+        setActionSuccess(`Item already exists: "${res.item.title}"`);
       } else {
-        setActionSuccess(`Imported & analyzed: "${res.item.title}" (${res.item.priority.toUpperCase()})`);
+        setActionSuccess(`Created new item: "${res.item.title}"`);
       }
       setTimeout(() => setActionSuccess(null), 4000);
+      setShowPasteModal(false);
+      setPasteEvidence('');
+      setPasteSourceTitle('');
+      setPasteSender('');
       await loadItems();
-      setSelectedItem(res.item);
     } catch (err: unknown) {
-      setErrorMessage(err instanceof Error ? err.message : 'Failed to ingest manual item');
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to ingest content');
     } finally {
       setPasteSubmitting(false);
     }
   };
 
-  // Helper formatting for deadlines
-  const formatDeadline = (item: Item) => {
-    if (item.deadline_status === 'confirmed' && item.deadline_at) {
-      const formatted = formatDateTimeWithTz(item.deadline_at);
-      return item.deadline_text && item.deadline_text.trim()
-        ? `${item.deadline_text.trim()} (${formatted})`
-        : formatted;
-    }
-    const cleanText = item.deadline_text?.trim();
-    if (cleanText && cleanText.toLowerCase() !== 'deadline') {
-      return cleanText;
-    }
-    return 'No deadline';
-  };
-
-  if (checkingAuth) {
+  // Sign-in gate if AUTH_ENABLED=true and not authenticated
+  if (!checkingAuth && authMe?.auth_enabled && !authMe?.authenticated) {
     return (
-      <div className="login-container">
-        <div style={{ textAlign: 'center', color: '#64748b' }}>
-          <p>Loading ClassMail J...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (authMe?.auth_enabled && !authMe?.authenticated) {
-    return (
-      <div className="login-container">
-        <div className="login-card">
-          <div className="login-logo">
-            <span className="logo-icon">📬</span>
-            <h1>ClassMail J</h1>
+      <div className="auth-gate-container">
+        <div className="auth-gate-card">
+          <div className="auth-gate-logo">
+            <span className="brand-icon">J</span>
           </div>
-          <p className="login-subtitle">Local AI Email &amp; Classroom Assistant</p>
-          <div className="login-divider" />
-          <p className="login-desc">
-            Sign in with your Google Account to authorize ClassMail J to access your Gmail and Google Classroom read-only.
-          </p>
-          <a href="http://127.0.0.1:8000/api/auth/google/start" className="google-signin-btn">
-            <svg className="google-icon" viewBox="0 0 24 24" width="20" height="20">
-              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-            </svg>
-            <span>Sign in with Google</span>
+          <h2>Sign in to ClassMail J</h2>
+          <p>Local-first academic email & classroom assistant.</p>
+          <a href="/api/auth/google/start" className="btn btn-primary btn-lg" style={{ width: '100%' }}>
+            Sign in with Google
           </a>
-          <p className="login-note">
-            This is a single-owner instance. Only the designated instance owner account is permitted.
+          <p className="auth-gate-note">
+            Single-owner authorization mode enabled. Access restricted to configured owner email.
           </p>
         </div>
       </div>
@@ -706,989 +712,1109 @@ export default function App() {
   }
 
   return (
-    <div className="app-container">
-      {/* Header */}
-      <header className="app-header">
-        <div className="header-brand">
-          <h1>ClassMail J</h1>
-          <span className="header-subtitle">Local AI Email &amp; Classroom Assistant</span>
-        </div>
+    <div className="app-page-wrapper">
+      {/* ====================================================================
+          Fixed Top Navigation (Minimalist SaaS with clean SVG icons)
+          ==================================================================== */}
+      <header className="site-nav">
+        <div className="site-nav-inner">
+          <div className="nav-brand" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+            <div className="brand-icon">J</div>
+            <span className="brand-title">ClassMail J</span>
+            <span className="brand-badge">Local</span>
+          </div>
 
-        <div className="header-status">
-          {health ? (
-            <div className="health-pill success" title={`API v${health.version}, DB: ${health.db}`}>
-              <span className="dot dot-success"></span>
-              <span>Backend Online ({health.db})</span>
-            </div>
-          ) : (
-            <div className="health-pill error" title={healthError || 'Offline'}>
-              <span className="dot dot-error"></span>
-              <span>Backend Offline</span>
-            </div>
-          )}
+          <nav className="nav-links">
+            <a href="#workspace" className="nav-link">Workspace</a>
+            <a href="#features" className="nav-link">Features</a>
+            <a href="#integrations" className="nav-link">Integrations</a>
+            <a href="#architecture" className="nav-link">Architecture</a>
+          </nav>
 
-          {/* Background Auto-sync Status & Toggle */}
-          {syncStatus && (
-            <>
-              {syncStatus.status === 'reconnect_needed' ? (
-                <div className="health-pill warning" title="Gmail authorization expired or missing">
-                  <span className="dot dot-warning"></span>
-                  <span>⚠️ Reconnect needed</span>
-                </div>
-              ) : syncStatus.auto_sync_enabled ? (
-                <div
-                  className="health-pill success"
-                  title={
-                    syncStatus.next_run_at
-                      ? `Next sync: ${formatDateTimeWithTz(syncStatus.next_run_at)}`
-                      : 'Auto-sync active'
-                  }
-                >
-                  <span className="dot dot-success"></span>
-                  <span>Auto-sync every {syncStatus.interval_minutes} min</span>
-                </div>
-              ) : (
-                <div className="health-pill neutral" title="Background auto-sync is currently paused">
-                  <span className="dot dot-neutral"></span>
-                  <span>Auto-sync paused</span>
-                </div>
-              )}
+          <div className="nav-actions">
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => {
+                loadSystemStatus();
+                setShowSystemStatusModal(true);
+              }}
+              title="System Diagnostics & Health"
+            >
+              <span className={`status-indicator-dot ${health?.status === 'ok' ? 'dot-online' : 'dot-warning'}`}></span>
+              {health?.status === 'ok' ? 'Online' : 'Status'}
+            </button>
+
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => {
+                loadNotificationInfo();
+                setShowNotificationsModal(true);
+              }}
+              title="Reminders & Notifications"
+            >
+              <IconBell />
+              <span>Alerts</span>
+            </button>
+
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => setShowPasteModal(true)}
+            >
+              + Ingest Notice
+            </button>
+
+            {authMe?.authenticated && (
               <button
+                type="button"
                 className="btn btn-secondary btn-sm"
-                onClick={handleToggleAutoSync}
-                disabled={togglingSync}
-                title={
-                  syncStatus.auto_sync_enabled
-                    ? 'Pause background synchronization'
-                    : 'Resume background synchronization'
-                }
+                onClick={handleLogout}
+                title={`Signed in as ${authMe.email}`}
               >
-                {togglingSync
-                  ? 'Updating...'
-                  : syncStatus.auto_sync_enabled
-                  ? 'Pause Auto-sync'
-                  : 'Enable Auto-sync'}
+                Sign out
               </button>
-            </>
-          )}
-
-          <button
-            className="btn btn-secondary btn-sm"
-            onClick={() => {
-              setShowSystemStatusModal(true);
-              loadSystemStatus();
-            }}
-          >
-            System Status
-          </button>
-          <button className="btn btn-secondary btn-sm" onClick={checkHealth}>
-            Check Health
-          </button>
-
-          {authMe?.auth_enabled && authMe?.authenticated && (
-            <div className="auth-user-info">
-              <span className="user-email-tag" title="Instance Owner">👤 {authMe.email}</span>
-              <button onClick={handleLogout} className="btn btn-secondary btn-sm">
-                Sign Out
-              </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </header>
 
-      {/* Demo Banner */}
-      {hasDemoItems && (
-        <div className="demo-banner">
-          <div className="demo-banner-content">
-            <span className="demo-banner-icon">⚠️</span>
-            <span>
-              <strong>Demo data active:</strong> Simulated academic items are loaded alongside real data.
-            </span>
-          </div>
-          <div className="demo-banner-actions">
-            <button className="btn btn-sm btn-outline" onClick={handleResetDemo}>
-              Reset Demo
-            </button>
-            <button className="btn btn-sm btn-outline btn-danger" onClick={handleDeleteDemo}>
-              Clear Demo
-            </button>
-          </div>
+      {/* ====================================================================
+          Hero Section
+          ==================================================================== */}
+      <section className="hero-section">
+        <div className="hero-tagline-pill">
+          <span className="status-indicator-dot dot-online"></span>
+          <span>Local-First Academic Intelligence • Privacy Preserved</span>
         </div>
-      )}
 
-      {/* Alert Messages */}
-      {actionSuccess && <div className="alert alert-success">{actionSuccess}</div>}
-      {errorMessage && (
-        <div className="alert alert-error">
-          <span>{errorMessage}</span>
-          <button className="alert-close" onClick={() => setErrorMessage(null)}>
-            ×
-          </button>
-        </div>
-      )}
+        <h1 className="hero-headline">
+          Never miss a deadline. <br />
+          <span className="gradient-text">Local AI for your academic life.</span>
+        </h1>
 
-      {/* Integrations Connection Strip */}
-      <div className="connections-strip">
-        <div className="connection-pill-group">
-          <span className="connection-group-title">Integrations:</span>
+        <p className="hero-subtext">
+          ClassMail J connects your Gmail and Google Classroom to deterministically extract coursework deadlines,
+          calculate assessment latest-start countdowns, and schedule push reminders — running 100% locally on your machine with zero cloud leaks.
+        </p>
 
-          {/* Gmail badge */}
-          <div
-            className={`connection-badge ${
-              connections?.gmail?.needs_reconnect || syncStatus?.status === 'reconnect_needed'
-                ? 'badge-warning'
-                : connections?.gmail?.connected
-                ? 'badge-success'
-                : 'badge-muted'
-            }`}
-          >
-            {connections?.gmail?.needs_reconnect || syncStatus?.status === 'reconnect_needed' ? (
-              <>
-                <span>⚠️ Reconnect needed (Gmail)</span>
-                <a href="http://127.0.0.1:8000/api/auth/google/start" className="btn-link">
-                  Reconnect
-                </a>
-              </>
-            ) : connections?.gmail?.connected ? (
-              <>
-                <span>✓ Gmail connected</span>
-                <button
-                  onClick={() => handleDisconnect('gmail')}
-                  className="btn-link text-danger"
-                  title="Disconnect Gmail integration and revoke token"
-                >
-                  Disconnect
-                </button>
-              </>
-            ) : (
-              <>
-                <span>○ Gmail not granted</span>
-                <a href="http://127.0.0.1:8000/api/auth/google/start" className="btn-link">
-                  Connect
-                </a>
-              </>
-            )}
-          </div>
-
-          {/* Classroom badge */}
-          <div
-            className={`connection-badge ${
-              connections?.classroom?.needs_reconnect || syncStatus?.classroom_status === 'reconnect_needed'
-                ? 'badge-warning'
-                : connections?.classroom?.connected
-                ? 'badge-success'
-                : 'badge-muted'
-            }`}
-          >
-            {connections?.classroom?.needs_reconnect || syncStatus?.classroom_status === 'reconnect_needed' ? (
-              <>
-                <span>⚠️ Reconnect needed (Classroom)</span>
-                <a href="http://127.0.0.1:8000/api/auth/google/start" className="btn-link">
-                  Reconnect
-                </a>
-              </>
-            ) : connections?.classroom?.connected ? (
-              <>
-                <span>✓ Classroom connected</span>
-                <button
-                  onClick={() => handleDisconnect('classroom')}
-                  className="btn-link text-danger"
-                  title="Disconnect Google Classroom integration and revoke token"
-                >
-                  Disconnect
-                </button>
-              </>
-            ) : (
-              <>
-                <span>○ Classroom not granted</span>
-                <a href="http://127.0.0.1:8000/api/auth/google/start" className="btn-link">
-                  Connect
-                </a>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Top Action Toolbar */}
-      <section className="toolbar">
-        <div className="toolbar-left">
-          <button className="btn btn-primary" onClick={() => setShowPasteModal(true)}>
-            + Paste Email / Text
-          </button>
+        <div className="hero-cta-group">
           <button
-            className="btn btn-gmail"
-            onClick={handleSyncGmail}
-            disabled={syncing}
-            title="Fetch recent messages from your Gmail inbox"
+            type="button"
+            className="btn btn-primary btn-lg"
+            onClick={() => setShowPasteModal(true)}
           >
-            {syncing ? '⏳ Syncing Gmail...' : '📥 Sync Gmail now'}
+            + Ingest Notice / Email
           </button>
+
           <button
-            className="btn btn-classroom"
-            onClick={handleSyncClassroom}
-            disabled={syncingClassroom}
-            title="Fetch active coursework and announcements from Google Classroom"
-          >
-            {syncingClassroom ? '⏳ Syncing Classroom...' : '📥 Sync Classroom now'}
-          </button>
-          <button
-            className="btn btn-outline"
-            onClick={handleReanalyzeAll}
-            disabled={reanalyzingAll}
-            title="Re-run extraction rules on all active items"
-          >
-            {reanalyzingAll ? '⏳ Re-analyzing...' : '🔄 Re-analyze all'}
-          </button>
-          <button
-            className="btn btn-outline"
+            type="button"
+            className="btn btn-secondary btn-lg"
             onClick={() => {
-              setShowNotificationsModal(true);
-              loadNotificationInfo();
+              const el = document.getElementById('workspace');
+              el?.scrollIntoView({ behavior: 'smooth' });
             }}
-            title="View notification settings and delivery logs"
           >
-            🔔 Notifications {notifStatus && !notifStatus.notifications_enabled ? '(Off)' : ''}
+            Open Workspace ▾
           </button>
-        </div>
-        <div className="toolbar-right">
-          <button className="btn btn-outline" onClick={handleResetDemo} title="Clear and reload fresh relative-date demo items">
-            Reset Demo Data
-          </button>
-          <button className="btn btn-outline" onClick={handleSeedDemo}>
+
+          <button
+            type="button"
+            className="btn btn-ghost btn-lg"
+            onClick={handleResetDemo}
+          >
             Load Demo Data
           </button>
-          <button className="btn btn-outline btn-danger" onClick={handleDeleteDemo}>
-            Clear Demo Data
-          </button>
-          <button className="btn btn-secondary" onClick={loadItems} disabled={loading}>
-            {loading ? 'Refreshing...' : 'Refresh'}
-          </button>
+        </div>
+
+        <div className="hero-highlights-row">
+          <div className="highlight-chip">
+            <IconShield />
+            <span>100% Local SQLite</span>
+          </div>
+          <div className="highlight-chip">
+            <IconClassroom />
+            <span>Classroom Read-Only</span>
+          </div>
+          <div className="highlight-chip">
+            <IconMail />
+            <span>Gmail Read-Only</span>
+          </div>
+          <div className="highlight-chip">
+            <IconClock />
+            <span>Deterministic Date Math</span>
+          </div>
+          <div className="highlight-chip">
+            <IconSparkle />
+            <span>Optional Local LLM</span>
+          </div>
+          <div className="highlight-chip">
+            <IconBell />
+            <span>Push Reminders</span>
+          </div>
         </div>
       </section>
 
-      {/* Gmail Reconnect Needed Banner */}
-      {syncStatus?.status === 'reconnect_needed' && (
-        <div className="reconnect-banner">
-          <div className="reconnect-header">
-            <span className="reconnect-icon">⚠️</span>
-            <strong>Gmail Reconnect Needed:</strong> Authorization token is missing, expired, or revoked.
-          </div>
-          <div className="reconnect-body">
-            <span>Automatic background sync for Gmail is paused. Click below to re-authorize via browser, or use the CLI command:</span>
-            <div style={{ marginTop: '0.6rem', display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-              <a href="http://127.0.0.1:8000/api/auth/google/start" className="btn btn-primary btn-sm">
-                Reconnect in Browser
-              </a>
-              <span style={{ fontSize: '0.85rem', color: '#92400e' }}>or run terminal command:</span>
-              <code className="reconnect-code">{syncStatus.reconnect_command || 'python -m app.integrations.google_auth gmail'}</code>
+      {/* ====================================================================
+          Continuous Technology Marquee Strip (Clean Minimalist Text)
+          ==================================================================== */}
+      <div className="marquee-strip">
+        <div className="marquee-track">
+          <div className="marquee-item"><span className="status-indicator-dot dot-online"></span><strong>FastAPI</strong> Backend</div>
+          <div className="marquee-item"><span className="status-indicator-dot dot-online"></span><strong>SQLite stdlib</strong> Storage</div>
+          <div className="marquee-item"><span className="status-indicator-dot dot-sync"></span><strong>Classroom API</strong> Read-Only</div>
+          <div className="marquee-item"><span className="status-indicator-dot dot-sync"></span><strong>Gmail API</strong> Read-Only</div>
+          <div className="marquee-item"><span className="status-indicator-dot dot-online"></span><strong>APScheduler</strong> Background</div>
+          <div className="marquee-item"><span className="status-indicator-dot dot-sync"></span><strong>ntfy.sh</strong> Push Alerts</div>
+          <div className="marquee-item"><span className="status-indicator-dot dot-sync"></span><strong>Ollama LLM</strong> Optional Inference</div>
+          <div className="marquee-item"><span className="status-indicator-dot dot-online"></span><strong>React 19 & TypeScript</strong> Interface</div>
+          <div className="marquee-item"><span className="status-indicator-dot dot-online"></span><strong>Zero Cloud Dependencies</strong> Complete Privacy</div>
+          <div className="marquee-item"><span className="status-indicator-dot dot-online"></span><strong>FastAPI</strong> Backend</div>
+          <div className="marquee-item"><span className="status-indicator-dot dot-online"></span><strong>SQLite stdlib</strong> Storage</div>
+          <div className="marquee-item"><span className="status-indicator-dot dot-sync"></span><strong>Classroom API</strong> Read-Only</div>
+          <div className="marquee-item"><span className="status-indicator-dot dot-sync"></span><strong>Gmail API</strong> Read-Only</div>
+          <div className="marquee-item"><span className="status-indicator-dot dot-online"></span><strong>APScheduler</strong> Background</div>
+          <div className="marquee-item"><span className="status-indicator-dot dot-sync"></span><strong>ntfy.sh</strong> Push Alerts</div>
+          <div className="marquee-item"><span className="status-indicator-dot dot-sync"></span><strong>Ollama LLM</strong> Optional Inference</div>
+          <div className="marquee-item"><span className="status-indicator-dot dot-online"></span><strong>React 19 & TypeScript</strong> Interface</div>
+          <div className="marquee-item"><span className="status-indicator-dot dot-online"></span><strong>Zero Cloud Dependencies</strong> Complete Privacy</div>
+        </div>
+      </div>
+
+      {/* ====================================================================
+          Main Interactive Product Showcase / Workspace Container
+          ==================================================================== */}
+      <section id="workspace" className="workspace-showcase">
+        <div className="showcase-container">
+          {/* Showcase Top Header */}
+          <div className="showcase-header">
+            <div className="showcase-headline">
+              <h2>Academic Priority Workspace</h2>
+              <p>Real-time extracted assignments, assessments, and actionable notices.</p>
             </div>
-          </div>
-        </div>
-      )}
 
-      {/* Classroom Reconnect Needed Banner */}
-      {syncStatus?.classroom_status === 'reconnect_needed' && (
-        <div className="reconnect-banner">
-          <div className="reconnect-header">
-            <span className="reconnect-icon">⚠️</span>
-            <strong>Google Classroom Reconnect Needed:</strong> Authorization token is missing, expired, or revoked.
-          </div>
-          <div className="reconnect-body">
-            <span>Click below to authorize Google Classroom via browser, or use the CLI command:</span>
-            <div style={{ marginTop: '0.6rem', display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-              <a href="http://127.0.0.1:8000/api/auth/google/start" className="btn btn-primary btn-sm">
-                Reconnect in Browser
-              </a>
-              <span style={{ fontSize: '0.85rem', color: '#92400e' }}>or run terminal command:</span>
-              <code className="reconnect-code">{syncStatus.classroom_reconnect_command || 'python -m app.integrations.google_auth classroom'}</code>
-            </div>
-          </div>
-        </div>
-      )}
+            <div className="floating-status-strip">
+              <div className="status-pill">
+                <span className={`status-indicator-dot ${health?.status === 'ok' ? 'dot-online' : 'dot-error'}`}></span>
+                <span>{health?.status === 'ok' ? 'Backend Online (ok)' : 'Connecting...'}</span>
+              </div>
 
-      {syncError && syncStatus?.status !== 'reconnect_needed' && syncStatus?.classroom_status !== 'reconnect_needed' && (
-        <div className="sync-error-banner">
-          <span className="sync-error-icon">⚠️</span>
-          <div className="sync-error-content">
-            <strong>Sync Note:</strong> {syncError}
-          </div>
-          <button className="alert-close" onClick={() => setSyncError(null)}>
-            ×
-          </button>
-        </div>
-      )}
-
-      {syncStatus && (syncStatus.last_synced_at || syncStatus.next_run_at) && (
-        <div className="sync-info-bar">
-          <div>
-            <strong>Gmail Sync:</strong>{' '}
-            {syncStatus.last_synced_at
-              ? `Last run at ${formatDateTimeWithTz(syncStatus.last_synced_at)}`
-              : 'Never run'}
-            {syncStatus.next_run_at && syncStatus.auto_sync_enabled && syncStatus.status !== 'reconnect_needed' ? (
-              <span className="next-sync-label">
-                {' '}
-                | Next run at {formatDateTimeWithTz(syncStatus.next_run_at)}
-              </span>
-            ) : null}
-            {syncStatus.status === 'reconnect_needed' ? (
-              <span className="badge badge-warning" style={{ marginLeft: '8px' }}>
-                Reconnect needed
-              </span>
-            ) : null}
-          </div>
-          <span>
-            Fetched: {syncStatus.counts.fetched} | Created: {syncStatus.counts.created} | Updated:{' '}
-            {syncStatus.counts.updated} | Skipped: {syncStatus.counts.skipped}
-            {syncStatus.counts.errors > 0 ? ` | Errors: ${syncStatus.counts.errors}` : ''}
-          </span>
-        </div>
-      )}
-
-      {syncStatus && syncStatus.classroom_last_synced_at && (
-        <div className="sync-info-bar" style={{ marginTop: '0.4rem' }}>
-          <div>
-            <strong>Classroom Sync:</strong> Last run at {formatDateTimeWithTz(syncStatus.classroom_last_synced_at)}
-            {syncStatus.classroom_status === 'reconnect_needed' ? (
-              <span className="badge badge-warning" style={{ marginLeft: '8px' }}>
-                Reconnect needed
-              </span>
-            ) : null}
-          </div>
-          <span>
-            Courses: {syncStatus.classroom_counts?.courses || 0} | Created: {syncStatus.classroom_counts?.created || 0} | Updated:{' '}
-            {syncStatus.classroom_counts?.updated || 0} | Skipped: {syncStatus.classroom_counts?.skipped || 0}
-            {syncStatus.classroom_counts && syncStatus.classroom_counts.errors > 0 ? ` | Errors: ${syncStatus.classroom_counts.errors}` : ''}
-          </span>
-        </div>
-      )}
-
-      {/* Primary Priority Filter Tabs */}
-      <nav className="filter-tabs" aria-label="Priority Tabs">
-        <button
-          className={`tab-btn ${priorityFilter === 'all' ? 'active' : ''}`}
-          onClick={() => setPriorityFilter('all')}
-        >
-          All <span className="tab-badge">{counts.all}</span>
-        </button>
-        <button
-          className={`tab-btn tab-urgent ${priorityFilter === 'urgent' ? 'active' : ''}`}
-          onClick={() => setPriorityFilter('urgent')}
-        >
-          Urgent <span className="tab-badge">{counts.urgent}</span>
-        </button>
-        <button
-          className={`tab-btn tab-important ${priorityFilter === 'important' ? 'active' : ''}`}
-          onClick={() => setPriorityFilter('important')}
-        >
-          Important <span className="tab-badge">{counts.important}</span>
-        </button>
-        <button
-          className={`tab-btn tab-normal ${priorityFilter === 'normal' ? 'active' : ''}`}
-          onClick={() => setPriorityFilter('normal')}
-        >
-          Normal <span className="tab-badge">{counts.normal}</span>
-        </button>
-      </nav>
-
-      {/* Secondary Controls */}
-      <section className="secondary-filters">
-        <div className="filter-group">
-          <label htmlFor="type-filter">Type:</label>
-          <select
-            id="type-filter"
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value as 'all' | ItemType)}
-          >
-            <option value="all">All Types</option>
-            <option value="task">Tasks</option>
-            <option value="information">Information</option>
-          </select>
-        </div>
-
-        <div className="filter-group">
-          <label htmlFor="state-filter">State:</label>
-          <select
-            id="state-filter"
-            value={stateFilter}
-            onChange={(e) => setStateFilter(e.target.value as 'all' | ItemState)}
-          >
-            <option value="all">All States</option>
-            <option value="needs_review">Needs Review</option>
-            <option value="not_started">Not Started</option>
-            <option value="in_progress">In Progress</option>
-            <option value="completed">Completed</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
-        </div>
-
-        <div className="filter-toggle">
-          <label>
-            <input
-              type="checkbox"
-              checked={showSnoozed}
-              onChange={(e) => setShowSnoozed(e.target.checked)}
-            />
-            Show Snoozed Items
-          </label>
-        </div>
-      </section>
-
-      {/* Main Content Layout */}
-      <div className="dashboard-layout">
-        {/* Items List */}
-        <main className="items-column">
-          {loading && items.length === 0 && (
-            <div className="empty-state">
-              <p>Loading items...</p>
-            </div>
-          )}
-
-          {!loading && displayedItems.length === 0 && (
-            <div className="empty-state">
-              <h3>No items found</h3>
-              <p>Try selecting a different filter tab or load demo fixtures.</p>
-              <button className="btn btn-primary" onClick={handleSeedDemo}>
-                Load Demo Data
-              </button>
-            </div>
-          )}
-
-          <div className="cards-grid">
-            {displayedItems.map((item) => {
-              const isSelected = selectedItem?.id === item.id;
-              const isSnoozed =
-                item.snoozed_until && new Date(item.snoozed_until).getTime() > Date.now();
-
-              return (
-                <article
-                  key={item.id}
-                  className={`item-card priority-${item.effective_priority} ${
-                    isSelected ? 'selected' : ''
-                  } ${item.state === 'completed' ? 'item-completed' : ''}`}
-                  onClick={() => setSelectedItem(item)}
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      setSelectedItem(item);
-                    }
-                  }}
-                >
-                  <div className="card-top">
-                    <div className="card-badges">
-                      <span className={`badge badge-priority badge-${item.effective_priority}`}>
-                        {item.effective_priority.toUpperCase()}
-                      </span>
-                      {item.priority_override && (
-                        <span className="badge badge-override" title="Overridden by user">
-                          Override
-                        </span>
-                      )}
-                      <span className="badge badge-kind">{formatKind(item.kind)}</span>
-                      <span className="badge badge-state">{item.state.replace('_', ' ')}</span>
-                      {item.source_type === 'gmail' && (
-                        <span className="badge badge-gmail" title="Imported from Gmail">
-                          ✉️ Gmail
-                        </span>
-                      )}
-                      {item.source_type === 'classroom' && (
-                        <span className="badge badge-classroom" title="Imported from Google Classroom">
-                          🏫 Classroom
-                        </span>
-                      )}
-                      {item.source_type === 'manual' && (
-                        <span className="badge badge-manual" title="Entered manually">
-                          📝 Manual
-                        </span>
-                      )}
-                      {item.source_status === 'TURNED_IN' && (
-                        <span className="badge badge-turned-in" title="Turned in per Google Classroom">
-                          ✓ Turned in per Classroom
-                        </span>
-                      )}
-                      {item.is_demo && <span className="badge badge-demo">DEMO</span>}
-                      {item.duration_minutes && (
-                        <span className="badge badge-duration">Duration {item.duration_minutes} min</span>
-                      )}
-                      {item.acknowledged_at && (
-                        <span className="badge badge-ack">✓ Acknowledged</span>
-                      )}
-                      {isSnoozed && <span className="badge badge-snooze">⏰ Snoozed</span>}
-                    </div>
-
-                    <div className="card-actions-quick" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        className="btn btn-outline btn-xs"
-                        onClick={() => openEdit(item)}
-                        title="Edit item"
-                      >
-                        Edit
-                      </button>
-                    </div>
-                  </div>
-
-                  <h3 className="card-title">{item.title}</h3>
-
-                  {item.summary && <p className="card-summary">{item.summary}</p>}
-
-                  {item.priority_reason && (
-                    <div className="card-priority-reason">
-                      <strong>Priority Note:</strong> {item.priority_reason}
-                    </div>
-                  )}
-
-                  <div className="card-footer">
-                    <div className="card-deadline">
-                      <span className="deadline-label">📅 {formatDeadline(item)}</span>
-                      {item.deadline_status === 'ambiguous' && (
-                        <span className="badge badge-warning">Needs confirmation</span>
-                      )}
-                      {item.kind === 'assessment' && (
-                        <span className={`badge ${item.duration_minutes ? 'badge-start-by' : 'badge-no-duration'}`}>
-                          ⏱️ {getAssessmentStartBy(item)}
-                        </span>
-                      )}
-                      {item.next_reminder_at && item.state !== 'completed' && item.state !== 'cancelled' && (
-                        <span className="card-next-reminder" title={`Next reminder scheduled for ${item.next_reminder_at}`}>
-                          ⏰ Next: {new Date(item.next_reminder_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="card-source-area" onClick={(e) => e.stopPropagation()}>
-                      {item.source_type === 'gmail' && item.source_id && (
-                        <a
-                          href={`https://mail.google.com/mail/u/0/#inbox/${item.source_id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="gmail-source-link"
-                          title="Open original message in Gmail"
-                        >
-                          ✉️ View in Gmail ↗
-                        </a>
-                      )}
-                      {item.source_title && (
-                        <span className="card-source">{item.source_title}</span>
-                      )}
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        </main>
-
-        {/* Detail Panel */}
-        {selectedItem && (() => {
-          const isClosed = selectedItem.state === 'completed' || selectedItem.state === 'cancelled';
-          return (
-            <aside className="detail-panel">
-              <div className="panel-header">
-                <h2>Item Details</h2>
+              <div className="status-pill">
+                <span className={`status-indicator-dot ${syncStatus?.auto_sync_enabled ? 'dot-online' : 'dot-warning'}`}></span>
+                <span>{syncStatus?.auto_sync_enabled ? 'Auto-sync active (5m)' : 'Auto-sync paused'}</span>
                 <button
-                  className="btn-icon"
-                  onClick={() => setSelectedItem(null)}
-                  aria-label="Close detail panel"
+                  type="button"
+                  onClick={handleToggleAutoSync}
+                  disabled={togglingSync}
+                  style={{ textDecoration: 'underline', cursor: 'pointer', fontSize: '0.78rem', marginLeft: '0.25rem' }}
                 >
-                  ✕
+                  {syncStatus?.auto_sync_enabled ? 'Pause' : 'Resume'}
                 </button>
               </div>
 
-              <div className="panel-content">
-                <div className="panel-title-area">
-                  <h3>{selectedItem.title}</h3>
-                  <div className="card-badges">
-                    <span
-                      className={`badge badge-priority badge-${selectedItem.effective_priority}`}
-                    >
-                      {selectedItem.effective_priority.toUpperCase()}
-                    </span>
-                    <span className="badge badge-kind">{formatKind(selectedItem.kind)}</span>
-                    <span className="badge badge-state">{selectedItem.state.replace('_', ' ')}</span>
-                    {selectedItem.source_type === 'gmail' && (
-                      <span className="badge badge-gmail" title="Imported from Gmail">
-                        ✉️ Gmail
-                      </span>
-                    )}
-                    {selectedItem.source_type === 'classroom' && (
-                      <span className="badge badge-classroom" title="Imported from Google Classroom">
-                        🏫 Classroom
-                      </span>
-                    )}
-                    {selectedItem.source_type === 'manual' && (
-                      <span className="badge badge-manual" title="Entered manually">
-                        📝 Manual
-                      </span>
-                    )}
-                    {selectedItem.is_demo && <span className="badge badge-demo">DEMO</span>}
-                    {selectedItem.acknowledged_at && (
-                      <span className="badge badge-ack">✓ Acknowledged</span>
-                    )}
-                    {selectedItem.snoozed_until && (
-                      <span className="badge badge-snooze">⏰ Snoozed</span>
-                    )}
-                  </div>
-                </div>
+              <button
+                type="button"
+                className="status-pill"
+                onClick={() => {
+                  loadSystemStatus();
+                  setShowSystemStatusModal(true);
+                }}
+              >
+                <IconSettings />
+                <span>Diagnostics</span>
+              </button>
+            </div>
+          </div>
 
-                {/* Action Buttons */}
-                <div className="action-button-group">
-                  {!isClosed && !selectedItem.acknowledged_at && (
-                    <button
-                      className="btn btn-secondary btn-sm"
-                      onClick={() =>
-                        runAction(
-                          () => api.acknowledgeItem(selectedItem.id),
-                          `Acknowledged item #${selectedItem.id}`
-                        )
-                      }
-                    >
-                      Acknowledge
-                    </button>
-                  )}
+          {/* Quick Action Toolbar */}
+          <div className="action-toolbar">
+            <div className="action-toolbar-left">
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => setShowPasteModal(true)}
+              >
+                + Ingest Email / Text
+              </button>
 
-                  {/* Snooze Presets - Hidden for completed/cancelled */}
-                  {!isClosed && (
-                    <div className="snooze-dropdown">
-                      <span className="dropdown-label">Snooze:</span>
-                      <button
-                        className="btn btn-outline btn-xs"
-                        onClick={() => handleSnooze(selectedItem, 1)}
-                      >
-                        1h
-                      </button>
-                      <button
-                        className="btn btn-outline btn-xs"
-                        onClick={() => handleSnooze(selectedItem, 4)}
-                      >
-                        4h
-                      </button>
-                      <button
-                        className="btn btn-outline btn-xs"
-                        onClick={() => handleSnooze(selectedItem, 'tomorrow')}
-                      >
-                        Tomorrow 9am
-                      </button>
-                    </div>
-                  )}
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={handleSyncGmail}
+                disabled={syncing}
+              >
+                <IconMail />
+                <span>{syncing ? 'Syncing Gmail...' : 'Sync Gmail'}</span>
+              </button>
 
-                  {/* State Transitions */}
-                  {(selectedItem.state === 'needs_review' ||
-                    selectedItem.state === 'not_started') && (
-                    <button
-                      className="btn btn-primary btn-sm"
-                      onClick={() =>
-                        runAction(
-                          () => api.startItem(selectedItem.id),
-                          `Started item #${selectedItem.id}`
-                        )
-                      }
-                    >
-                      Start
-                    </button>
-                  )}
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={handleSyncClassroom}
+                disabled={syncingClassroom}
+              >
+                <IconClassroom />
+                <span>{syncingClassroom ? 'Syncing Classroom...' : 'Sync Classroom'}</span>
+              </button>
 
-                  {(selectedItem.state === 'not_started' ||
-                    selectedItem.state === 'in_progress') && (
-                    <button
-                      className="btn btn-success btn-sm"
-                      onClick={() =>
-                        runAction(
-                          () => api.completeItem(selectedItem.id),
-                          `Completed item #${selectedItem.id}`
-                        )
-                      }
-                    >
-                      Complete
-                    </button>
-                  )}
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={handleReanalyzeAll}
+                disabled={reanalyzingAll}
+              >
+                <IconSync />
+                <span>{reanalyzingAll ? 'Re-analyzing...' : 'Re-analyze all'}</span>
+              </button>
+            </div>
 
-                  {selectedItem.state !== 'completed' && selectedItem.state !== 'cancelled' && (
-                    <button
-                      className="btn btn-outline btn-danger btn-sm"
-                      onClick={() =>
-                        runAction(
-                          () => api.cancelItem(selectedItem.id),
-                          `Cancelled item #${selectedItem.id}`
-                        )
-                      }
-                    >
-                      Cancel
-                    </button>
-                  )}
+            <div className="action-toolbar-right">
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={handleResetDemo}
+                title="Load sample academic tasks"
+              >
+                Load Demo Data
+              </button>
 
-                  {(selectedItem.state === 'completed' || selectedItem.state === 'cancelled') && (
-                    <button
-                      className="btn btn-secondary btn-sm"
-                      onClick={() =>
-                        runAction(
-                          () => api.reopenItem(selectedItem.id),
-                          `Reopened item #${selectedItem.id}`
-                        )
-                      }
-                    >
-                      Reopen
-                    </button>
-                  )}
-
-                  <button
-                    className="btn btn-outline btn-sm"
-                    onClick={() => handleReanalyzeItem(selectedItem.id)}
-                    disabled={reanalyzingItem}
-                    title="Re-run extraction on evidence"
-                  >
-                    {reanalyzingItem ? '⏳ Re-analyzing...' : '🔄 Re-analyze'}
-                  </button>
-
-                  <button
-                    className="btn btn-outline btn-sm"
-                    onClick={() => openEdit(selectedItem)}
-                  >
-                    Edit Item
-                  </button>
-                </div>
-
-                {/* Detail fields */}
-                <div className="detail-metadata">
-                  <p>
-                    <strong>Type:</strong> {selectedItem.item_type}
-                  </p>
-                  <p>
-                    <strong>Kind:</strong> {formatKind(selectedItem.kind)}
-                  </p>
-                  <p>
-                    <strong>Confidence:</strong> {(selectedItem.extraction_confidence * 100).toFixed(0)}%
-                  </p>
-                  <p>
-                    <strong>Priority:</strong> {selectedItem.priority}
-                    {selectedItem.priority_override && (
-                      <span className="override-indicator">
-                        {' '}
-                        (Override: {selectedItem.priority_override})
-                      </span>
-                    )}
-                  </p>
-                  {selectedItem.priority_reason && (
-                    <p>
-                      <strong>Priority Reason:</strong> {selectedItem.priority_reason}
-                    </p>
-                  )}
-                  <p>
-                    <strong>Deadline Text:</strong>{' '}
-                    {selectedItem.deadline_text &&
-                    selectedItem.deadline_text.trim() &&
-                    selectedItem.deadline_text.trim().toLowerCase() !== 'deadline'
-                      ? selectedItem.deadline_text.trim()
-                      : 'No deadline'}
-                  </p>
-                  <p>
-                    <strong>Deadline Status:</strong> {selectedItem.deadline_status}
-                    {selectedItem.deadline_status === 'ambiguous' && (
-                      <span className="badge badge-warning"> Needs confirmation</span>
-                    )}
-                  </p>
-                {selectedItem.duration_minutes && (
-                  <p>
-                    <strong>Duration:</strong> {selectedItem.duration_minutes} min
-                  </p>
-                )}
-                {selectedItem.kind === 'assessment' && (
-                  <p>
-                    <strong>Assessment Start:</strong>{' '}
-                    <span className="badge badge-start-by">⏱️ {getAssessmentStartBy(selectedItem)}</span>
-                  </p>
-                )}
-                {selectedItem.deadline_at && (
-                  <p>
-                    <strong>Deadline Time:</strong>{' '}
-                    {formatDateTimeWithTz(selectedItem.deadline_at)}
-                  </p>
-                )}
-                {selectedItem.snoozed_until && (
-                  <p>
-                    <strong>Snoozed Until:</strong>{' '}
-                    {formatDateTimeWithTz(selectedItem.snoozed_until)}
-                  </p>
-                )}
-                {selectedItem.acknowledged_at && (
-                  <p>
-                    <strong>Acknowledged At:</strong>{' '}
-                    {formatDateTimeWithTz(selectedItem.acknowledged_at)}
-                  </p>
-                )}
-                {selectedItem.completed_at && (
-                  <p>
-                    <strong>Completed At:</strong>{' '}
-                    {formatDateTimeWithTz(selectedItem.completed_at)}
-                  </p>
-                )}
-                <p>
-                  <strong>Next Reminder:</strong>{' '}
-                  {selectedItem.next_reminder_at && selectedItem.state !== 'completed' && selectedItem.state !== 'cancelled' ? (
-                    <span className="reminder-highlight">
-                      ⏰ {formatDateTimeWithTz(selectedItem.next_reminder_at)} ({selectedItem.next_reminder_kind})
-                    </span>
-                  ) : selectedItem.state === 'completed' || selectedItem.state === 'cancelled' ? (
-                    <span className="text-muted">None (item closed)</span>
-                  ) : (
-                    <span className="text-muted">No reminder scheduled</span>
-                  )}
-                </p>
-              </div>
-
-              <div className="detail-section detail-reminders-section">
-                <h4>Next reminders</h4>
-                {itemReminders.filter((r) => r.status === 'pending').length > 0 ? (
-                  <ul className="reminders-list">
-                    {itemReminders
-                      .filter((r) => r.status === 'pending')
-                      .map((r) => (
-                        <li key={r.id}>
-                          <strong>{r.kind.replace(/_/g, ' ')}:</strong> {formatDateTimeWithTz(r.scheduled_for)}
-                          {r.reason && <span className="text-muted"> — {r.reason}</span>}
-                        </li>
-                      ))}
-                  </ul>
-                ) : (
-                  <p className="text-muted">No pending reminders</p>
-                )}
-              </div>
-
-              {selectedItem.summary && (
-                <div className="detail-section">
-                  <h4>Summary &amp; Instructions</h4>
-                  <p className="summary-text">{selectedItem.summary}</p>
-                </div>
+              {hasDemoItems && (
+                <button
+                  type="button"
+                  className="btn btn-danger btn-sm"
+                  onClick={handleClearDemo}
+                >
+                  Clear Demo Data
+                </button>
               )}
 
-              {selectedItem.links && selectedItem.links.length > 0 && (
-                <div className="detail-section">
-                  <h4>Associated Links</h4>
-                  <ul className="links-list">
-                    {selectedItem.links.map((link, idx) => (
-                      <li key={idx}>
-                        <a href={link} target="_blank" rel="noopener noreferrer">
-                          {link}
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => {
+                  loadItems();
+                  loadSyncStatus();
+                }}
+                disabled={loading}
+              >
+                Refresh
+              </button>
+            </div>
+          </div>
 
-              {/* Source Evidence (Plain Text Only) */}
-              <div className="detail-section evidence-section">
-                <h4>Source Evidence</h4>
-                <div className="evidence-meta">
-                  <span>
-                    <strong>Source:</strong> {selectedItem.source_type.toUpperCase()}{' '}
-                    {selectedItem.source_title ? `(${selectedItem.source_title})` : ''}
-                    {selectedItem.is_demo ? ' [DEMO]' : ''}
-                  </span>
-                  {selectedItem.source_type === 'gmail' && selectedItem.source_id && (
-                    <span>
-                      <a
-                        href={`https://mail.google.com/mail/u/0/#inbox/${selectedItem.source_id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="gmail-source-link"
-                      >
-                        ✉️ Open in Gmail ↗
-                      </a>
-                    </span>
-                  )}
-                  {selectedItem.source_type === 'classroom' && selectedItem.links && selectedItem.links.length > 0 && (
-                    <span>
-                      <a
-                        href={selectedItem.links[0]}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="source-link"
-                      >
-                        🏫 Open in Classroom ↗
-                      </a>
-                    </span>
-                  )}
-                  {selectedItem.source_status && (
-                    <span>
-                      <strong>Classroom Status:</strong>{' '}
-                      <span className={`badge ${selectedItem.source_status === 'TURNED_IN' ? 'badge-turned-in' : 'badge-state'}`}>
-                        {selectedItem.source_status === 'TURNED_IN' ? '✓ Turned in per Classroom' : selectedItem.source_status}
-                      </span>
-                    </span>
-                  )}
-                  {selectedItem.sender && (
-                    <span>
-                      <strong>Sender:</strong> {selectedItem.sender}
-                    </span>
-                  )}
-                  {selectedItem.received_at && (
-                    <span>
-                      <strong>Received:</strong>{' '}
-                      {formatDateTimeWithTz(selectedItem.received_at)}
-                    </span>
-                  )}
-                </div>
-                <pre className="evidence-box">
-                  {selectedItem.evidence || 'No source evidence recorded.'}
-                </pre>
+          {/* Google Connections Strip */}
+          <div className="connections-strip">
+            <div className="connections-strip-items">
+              <div className="connection-item">
+                <strong>Gmail Sync:</strong>{' '}
+                <span className={syncStatus?.status === 'reconnect_needed' ? 'badge badge-urgent' : 'badge badge-source-gmail'}>
+                  {syncStatus?.status === 'reconnect_needed' ? 'Reconnect Needed' : 'Connected (Read-Only)'}
+                </span>
+                <span style={{ color: 'var(--text-tertiary)', fontSize: '0.8rem' }}>
+                  {syncStatus?.last_synced_at ? `Last run: ${formatDateTimeWithTz(syncStatus.last_synced_at)}` : 'Not run yet'}
+                </span>
+              </div>
+
+              <div className="connection-item">
+                <strong>Classroom Sync:</strong>{' '}
+                <span className={syncStatus?.classroom_status === 'reconnect_needed' ? 'badge badge-urgent' : 'badge badge-source-classroom'}>
+                  {syncStatus?.classroom_status === 'reconnect_needed' ? 'Reconnect Needed' : 'Connected (Read-Only)'}
+                </span>
+                <span style={{ color: 'var(--text-tertiary)', fontSize: '0.8rem' }}>
+                  {syncStatus?.classroom_last_synced_at ? `Last run: ${formatDateTimeWithTz(syncStatus.classroom_last_synced_at)}` : 'Not run yet'}
+                </span>
               </div>
             </div>
-          </aside>
-        );})()}
-      </div>
 
-      {/* Edit Form Modal */}
-      {editingItem && (
-        <div className="modal-overlay" role="dialog" aria-modal="true">
-          <div className="modal-card">
+            {connections && (
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                {connections.gmail.connected && (
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    style={{ fontSize: '0.75rem' }}
+                    onClick={() => handleDisconnect('gmail')}
+                  >
+                    Disconnect Gmail
+                  </button>
+                )}
+                {connections.classroom.connected && (
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    style={{ fontSize: '0.75rem' }}
+                    onClick={() => handleDisconnect('classroom')}
+                  >
+                    Disconnect Classroom
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Alert Banners */}
+          {syncStatus?.classroom_status === 'reconnect_needed' && (
+            <div className="alert-banner alert-banner-warning">
+              <div>
+                <strong>Google Classroom Reconnect Needed:</strong> Authorization token is missing or expired.
+                <div style={{ marginTop: '0.4rem', fontFamily: 'var(--font-mono)', fontSize: '0.82rem', background: 'rgba(0,0,0,0.05)', padding: '0.35rem 0.65rem', borderRadius: '6px' }}>
+                  python -m app.integrations.google_auth classroom
+                </div>
+              </div>
+            </div>
+          )}
+
+          {hasDemoItems && (
+            <div className="alert-banner alert-banner-info">
+              <div>
+                <strong>Demo Mode Active:</strong> Sample academic emails and classroom assignments are currently populated in your workspace.
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={handleResetDemo}>
+                  Reset Demo
+                </button>
+                <button type="button" className="btn btn-danger btn-sm" onClick={handleClearDemo}>
+                  Clear Demo Data
+                </button>
+              </div>
+            </div>
+          )}
+
+          {healthError && (
+            <div className="alert-banner alert-banner-danger">
+              <div>Backend offline: {healthError}</div>
+              <button type="button" onClick={() => setHealthError(null)} style={{ cursor: 'pointer', fontWeight: 600 }}>✕</button>
+            </div>
+          )}
+
+          {syncError && (
+            <div className="alert-banner alert-banner-warning">
+              <div>Sync issue: {syncError}</div>
+              <button type="button" onClick={() => setSyncError(null)} style={{ cursor: 'pointer', fontWeight: 600 }}>✕</button>
+            </div>
+          )}
+
+          {errorMessage && (
+            <div className="alert-banner alert-banner-danger">
+              <div>{errorMessage}</div>
+              <button type="button" onClick={() => setErrorMessage(null)} style={{ cursor: 'pointer', fontWeight: 600 }}>✕</button>
+            </div>
+          )}
+
+          {actionSuccess && (
+            <div className="alert-banner alert-banner-info">
+              <div>{actionSuccess}</div>
+              <button type="button" onClick={() => setActionSuccess(null)} style={{ cursor: 'pointer', fontWeight: 600 }}>✕</button>
+            </div>
+          )}
+
+          {/* Filter & View Bar */}
+          <div className="filter-controls-row">
+            <div className="priority-tabs">
+              <div
+                className={`priority-tab ${priorityFilter === 'all' ? 'active' : ''}`}
+                onClick={() => setPriorityFilter('all')}
+              >
+                <span>All</span>
+                <span className="priority-tab-count">{counts.all}</span>
+              </div>
+              <div
+                className={`priority-tab ${priorityFilter === 'urgent' ? 'active' : ''}`}
+                onClick={() => setPriorityFilter('urgent')}
+              >
+                <span>Urgent</span>
+                <span className="priority-tab-count" style={{ color: '#BE123C' }}>{counts.urgent}</span>
+              </div>
+              <div
+                className={`priority-tab ${priorityFilter === 'important' ? 'active' : ''}`}
+                onClick={() => setPriorityFilter('important')}
+              >
+                <span>Important</span>
+                <span className="priority-tab-count" style={{ color: '#B45309' }}>{counts.important}</span>
+              </div>
+              <div
+                className={`priority-tab ${priorityFilter === 'normal' ? 'active' : ''}`}
+                onClick={() => setPriorityFilter('normal')}
+              >
+                <span>Normal</span>
+                <span className="priority-tab-count">{counts.normal}</span>
+              </div>
+            </div>
+
+            <div className="dropdown-filters">
+              <input
+                type="text"
+                placeholder="Search notices & tasks..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="select-input"
+                style={{ width: '200px' }}
+              />
+
+              <select
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value as 'all' | ItemType)}
+                className="select-input"
+              >
+                <option value="all">All Types</option>
+                <option value="task">Tasks</option>
+                <option value="information">Information</option>
+              </select>
+
+              <select
+                value={stateFilter}
+                onChange={(e) => setStateFilter(e.target.value as 'all' | ItemState)}
+                className="select-input"
+              >
+                <option value="all">All States</option>
+                <option value="needs_review">Needs Review</option>
+                <option value="not_started">Not Started</option>
+                <option value="in_progress">In Progress</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={showSnoozed}
+                  onChange={(e) => setShowSnoozed(e.target.checked)}
+                />
+                Show Snoozed
+              </label>
+            </div>
+          </div>
+
+          {/* Items Grid / Cards */}
+          <div className="items-grid">
+            {loading ? (
+              <div className="empty-state">
+                <p>Loading your academic workspace...</p>
+              </div>
+            ) : displayedItems.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-state-icon">
+                  <IconMail />
+                </div>
+                <h3>No items match your filter</h3>
+                <p>Ingest a new notice, email, or load sample demo data to see deterministic task extraction in action.</p>
+                <button type="button" className="btn btn-primary" onClick={handleResetDemo}>
+                  Load Demo Fixtures
+                </button>
+              </div>
+            ) : (
+              displayedItems.map((item) => {
+                const relTime = getRelativeTimeLabel(item.deadline_at);
+                const isUrgent = item.effective_priority === 'urgent';
+                const isImportant = item.effective_priority === 'important';
+
+                return (
+                  <article
+                    key={item.id}
+                    className={`item-card ${item.effective_priority} ${item.state === 'completed' ? 'completed' : ''}`}
+                    onClick={() => setSelectedItem(item)}
+                  >
+                    <div className="item-card-top">
+                      <div className="card-badges-left">
+                        <span className={`badge ${isUrgent ? 'badge-urgent' : isImportant ? 'badge-important' : 'badge-normal'}`}>
+                          {item.effective_priority}
+                        </span>
+
+                        <span className="badge badge-kind">
+                          {item.kind}
+                        </span>
+
+                        <span className="badge badge-state">
+                          {item.state.replace('_', ' ')}
+                        </span>
+
+                        <span className={`badge badge-source-${item.source_type}`}>
+                          {item.source_type}
+                        </span>
+
+                        {item.source_status && (
+                          <span className={`badge ${item.source_status === 'TURNED_IN' ? 'badge-turned-in' : 'badge-state'}`}>
+                            {item.source_status === 'TURNED_IN' ? 'Turned In' : item.source_status}
+                          </span>
+                        )}
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '0.4rem' }}>
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          onClick={(e) => handleOpenEdit(item, e)}
+                        >
+                          Edit
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="item-card-body">
+                      <h3 className="item-title">{item.title}</h3>
+                      {item.summary && <p className="item-summary">{item.summary}</p>}
+
+                      <div className="item-metadata-row">
+                        {item.deadline_at && (
+                          <span className={`metadata-item ${isUrgent ? 'deadline-urgent' : 'deadline-confirmed'}`}>
+                            <IconCalendar />
+                            <span>{formatDateTimeWithTz(item.deadline_at)} ({relTime.label})</span>
+                          </span>
+                        )}
+
+                        {item.deadline_status === 'ambiguous' && (
+                          <span className="badge badge-important" style={{ fontSize: '0.72rem' }}>
+                            <IconAlert />
+                            <span>Ambiguous: {item.deadline_text}</span>
+                          </span>
+                        )}
+
+                        {item.duration_minutes && (
+                          <span className="metadata-item latest-start-chip">
+                            <IconClock />
+                            <span>Duration {item.duration_minutes}m</span>
+                          </span>
+                        )}
+
+                        {item.next_reminder_at && (
+                          <span className="metadata-item" style={{ color: 'var(--accent-purple)' }}>
+                            <IconBell />
+                            <span>Next: {formatDateTimeWithTz(item.next_reminder_at)} ({item.next_reminder_kind})</span>
+                          </span>
+                        )}
+
+                        {item.sender && (
+                          <span className="metadata-item">
+                            From: {item.sender}
+                          </span>
+                        )}
+
+                        {item.extraction_provider && (
+                          <span className="metadata-item" style={{ fontSize: '0.75rem' }}>
+                            Engine: {item.extraction_provider}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="item-card-bottom" onClick={(e) => e.stopPropagation()}>
+                      <div className="card-actions-left">
+                        {!item.acknowledged_at ? (
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => handleAcknowledge(item)}
+                          >
+                            <IconCheck />
+                            <span>Acknowledge</span>
+                          </button>
+                        ) : (
+                          <span style={{ fontSize: '0.78rem', color: 'var(--text-tertiary)', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                            <IconCheck />
+                            <span>Acknowledged</span>
+                          </span>
+                        )}
+
+                        {/* Snooze options */}
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => handleSnooze(item, 1)}
+                            title="Snooze for 1 hour"
+                          >
+                            1h
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => handleSnooze(item, 24)}
+                            title="Snooze for 24 hours"
+                          >
+                            24h
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => handleSnooze(item, 'tomorrow')}
+                            title="Snooze until tomorrow morning"
+                          >
+                            Tomorrow
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="card-actions-right">
+                        {item.state !== 'completed' ? (
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => handleStateChange(item, 'completed')}
+                          >
+                            Mark Completed
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => handleStateChange(item, 'in_progress')}
+                          >
+                            Re-open
+                          </button>
+                        )}
+
+                        {item.source_type === 'gmail' && item.source_id && (
+                          <a
+                            href={`https://mail.google.com/mail/u/0/#inbox/${item.source_id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn btn-ghost btn-sm"
+                          >
+                            Open Gmail ↗
+                          </a>
+                        )}
+
+                        {item.source_type === 'classroom' && item.links && item.links.length > 0 && (
+                          <a
+                            href={item.links[0]}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn btn-ghost btn-sm"
+                          >
+                            Open Classroom ↗
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </article>
+                );
+              })
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* ====================================================================
+          Feature Showcase Section
+          ==================================================================== */}
+      <section id="features" className="feature-section">
+        <div className="section-header">
+          <div className="section-label">Engineered for Academic Safety</div>
+          <h2 className="section-headline">
+            Deterministic extraction, autonomous scheduling, and absolute local privacy.
+          </h2>
+        </div>
+
+        <div className="two-col-features">
+          <div className="feature-card">
+            <div className="feature-card-content">
+              <h3>Deterministic Deadline Engine</h3>
+              <p>
+                Unlike generic LLMs that hallucinate dates and time zones, ClassMail J uses a strict rules baseline.
+                Durations (e.g. &ldquo;45 minutes&rdquo;) are extracted precisely to schedule latest-start alerts before confirmed deadlines.
+              </p>
+            </div>
+            <div className="feature-card-preview">
+              &gt; Midterm Exam: Nov 15 at 14:00 UTC<br />
+              &gt; Duration: 45 minutes<br />
+              &gt; Latest Start Trigger: 13:15:00 UTC (exact countdown)
+            </div>
+          </div>
+
+          <div className="feature-card">
+            <div className="feature-card-content">
+              <h3>Unified Read-Only Google Sync</h3>
+              <p>
+                ClassMail J queries your active courses, coursework due dates, announcements, and student submission states.
+                All OAuth scopes are strictly read-only, preventing any write actions to your student account.
+              </p>
+            </div>
+            <div className="feature-card-preview">
+              &gt; Scopes: classroom.courses.readonly, coursework.me.readonly<br />
+              &gt; Submissions: TURNED_IN detected automatically<br />
+              &gt; Deduplication by (source_type, source_id)
+            </div>
+          </div>
+
+          <div className="feature-card">
+            <div className="feature-card-content">
+              <h3>Autonomous Background Reminders</h3>
+              <p>
+                A single APScheduler instance runs inside the FastAPI lifespan. Time-critical assessment alerts use one-shot
+                DateTrigger jobs with frequency caps, quiet hours, and privacy-preserving push notifications via ntfy.
+              </p>
+            </div>
+            <div className="feature-card-preview">
+              &gt; Frequency Cap: Max 5 notifications per rolling hour<br />
+              &gt; Quiet Hours: 22:00 - 07:00 (Urgent bypass available)<br />
+              &gt; Channel: ntfy push alerts with zero message body leaks
+            </div>
+          </div>
+
+          <div className="feature-card">
+            <div className="feature-card-content">
+              <h3>100% Local-First Architecture</h3>
+              <p>
+                All data resides on your machine in a stdlib SQLite database. With optional Ollama integration,
+                local models like Llama 3 improve titles and summaries with strict prompt injection guardrails and seamless rules fallback.
+              </p>
+            </div>
+            <div className="feature-card-preview">
+              &gt; Database: backend/data/classmail.db (SQLite stdlib)<br />
+              &gt; Engine: Optional Ollama (POST /api/generate @ localhost)<br />
+              &gt; Fallback: 100% operational with RulesProvider
+            </div>
+          </div>
+        </div>
+
+        {/* Micro-Features Grid */}
+        <div id="architecture" className="micro-features-grid">
+          <div className="micro-card">
+            <div className="micro-icon"><IconShield /></div>
+            <h4>Zero Cloud Leakage</h4>
+            <p>Your academic notices and assignments never leave your localhost or reach third-party servers.</p>
+          </div>
+
+          <div className="micro-card">
+            <div className="micro-icon"><IconClock /></div>
+            <h4>Sub-millisecond Search</h4>
+            <p>Filter instantly across courses, states, deadlines, and urgency tiers with local indexes.</p>
+          </div>
+
+          <div className="micro-card">
+            <div className="micro-icon"><IconClassroom /></div>
+            <h4>Audit Trail</h4>
+            <p>Full item event history preserves original text evidence, timeline mutations, and manual edits.</p>
+          </div>
+
+          <div className="micro-card">
+            <div className="micro-icon"><IconCheck /></div>
+            <h4>Noise-Free Focus</h4>
+            <p>Classifies announcements, recruiter messages, routine updates, and exams into actionable priorities.</p>
+          </div>
+        </div>
+      </section>
+
+      {/* ====================================================================
+          Final CTA Section
+          ==================================================================== */}
+      <section className="final-cta-section">
+        <div className="final-cta-container">
+          <h2>Take control of your academic schedule.</h2>
+          <p>
+            Deterministic task management built for students and educators. Keep your data private, your deadlines confirmed, and your study time on track.
+          </p>
+
+          <div className="final-cta-buttons">
+            <button
+              type="button"
+              className="btn btn-cta-light btn-lg"
+              onClick={() => {
+                const el = document.getElementById('workspace');
+                el?.scrollIntoView({ behavior: 'smooth' });
+              }}
+            >
+              Go to Workspace
+            </button>
+
+            <button
+              type="button"
+              className="btn btn-cta-ghost btn-lg"
+              onClick={handleResetDemo}
+            >
+              Load Demo Fixtures
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* ====================================================================
+          Site Footer
+          ==================================================================== */}
+      <footer className="site-footer">
+        <div className="footer-inner">
+          <div className="footer-left">
+            <div className="brand-icon" style={{ width: '24px', height: '24px', fontSize: '0.8rem' }}>J</div>
+            <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>ClassMail J</span>
+            <span className="footer-text">Local-First Academic Assistant • v0.1.0</span>
+          </div>
+
+          <div className="footer-links">
+            <a href="#workspace">Workspace</a>
+            <a href="#features">Features</a>
+            <a href="#architecture">Architecture</a>
+            <span style={{ color: 'var(--text-tertiary)' }}>Timezone: {localTimezone}</span>
+          </div>
+        </div>
+      </footer>
+
+      {/* ====================================================================
+          Selected Item Detail Modal
+          ==================================================================== */}
+      {selectedItem && (
+        <div className="modal-overlay" onClick={() => setSelectedItem(null)} role="dialog" aria-modal="true">
+          <div className="modal-card modal-card-lg" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Edit Item #{editingItem.id}</h3>
-              <button className="btn-icon" onClick={() => setEditingItem(null)}>
+              <div>
+                <span className={`badge ${selectedItem.effective_priority === 'urgent' ? 'badge-urgent' : selectedItem.effective_priority === 'important' ? 'badge-important' : 'badge-normal'}`}>
+                  {selectedItem.effective_priority}
+                </span>
+                <span className="badge badge-kind" style={{ marginLeft: '0.4rem' }}>
+                  {selectedItem.kind}
+                </span>
+                <span className={`badge badge-source-${selectedItem.source_type}`} style={{ marginLeft: '0.4rem' }}>
+                  {selectedItem.source_type}
+                </span>
+              </div>
+              <button
+                type="button"
+                className="modal-close-btn"
+                onClick={() => setSelectedItem(null)}
+              >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleSaveEdit} className="form">
+            <div className="modal-body">
+              <h2 style={{ fontSize: '1.45rem', fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>
+                {selectedItem.title}
+              </h2>
+
+              {selectedItem.summary && (
+                <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                  {selectedItem.summary}
+                </p>
+              )}
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.85rem', padding: '1rem', background: '#F7F7F5', borderRadius: '12px', fontSize: '0.85rem' }}>
+                <div>
+                  <strong>Deadline:</strong>{' '}
+                  {selectedItem.deadline_at ? formatDateTimeWithTz(selectedItem.deadline_at) : 'None'}
+                  {selectedItem.deadline_status === 'ambiguous' && ' (Ambiguous)'}
+                </div>
+
+                {selectedItem.duration_minutes && (
+                  <div>
+                    <strong>Duration:</strong> {selectedItem.duration_minutes} minutes
+                  </div>
+                )}
+
+                <div>
+                  <strong>State:</strong> {selectedItem.state.replace('_', ' ')}
+                </div>
+
+                <div>
+                  <strong>Extraction Engine:</strong>{' '}
+                  <span className="badge badge-kind">{selectedItem.extraction_provider || 'rules'}</span>
+                </div>
+
+                {selectedItem.sender && (
+                  <div>
+                    <strong>Sender:</strong> {selectedItem.sender}
+                  </div>
+                )}
+
+                <div>
+                  <strong>Received:</strong> {formatDateTimeWithTz(selectedItem.received_at)}
+                </div>
+              </div>
+
+              {selectedItem.priority_reason && (
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', background: '#F8FAFC', padding: '0.75rem', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                  <strong>Priority Reason:</strong> {selectedItem.priority_reason}
+                </div>
+              )}
+
+              {/* Reminders list */}
+              {itemReminders.length > 0 && (
+                <div style={{ marginTop: '0.5rem' }}>
+                  <h4 style={{ fontSize: '0.9rem', fontWeight: 600, marginBottom: '0.4rem' }}>Scheduled Reminders:</h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                    {itemReminders.map((rem) => (
+                      <div key={rem.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.45rem 0.65rem', background: '#FFFFFF', border: '1px solid var(--border-subtle)', borderRadius: '8px', fontSize: '0.8rem' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}><IconBell /> {rem.kind}</span>
+                        <span>{formatDateTimeWithTz(rem.scheduled_for)} ({rem.status})</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Evidence box */}
+              <div>
+                <h4 style={{ fontSize: '0.9rem', fontWeight: 600, marginBottom: '0.4rem' }}>Source Evidence:</h4>
+                <pre className="evidence-box">
+                  {selectedItem.evidence || 'No original text evidence recorded.'}
+                </pre>
+              </div>
+            </div>
+
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => handleReanalyzeItem(selectedItem.id)}
+                disabled={reanalyzingItem}
+              >
+                {reanalyzingItem ? 'Re-analyzing...' : 'Re-analyze Item'}
+              </button>
+
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={(e) => {
+                  const it = selectedItem;
+                  setSelectedItem(null);
+                  handleOpenEdit(it, e);
+                }}
+              >
+                Edit Item
+              </button>
+
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => setSelectedItem(null)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ====================================================================
+          Manual Ingest / Paste Modal
+          ==================================================================== */}
+      {showPasteModal && (
+        <div className="modal-overlay" onClick={() => setShowPasteModal(false)} role="dialog" aria-modal="true">
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Ingest Notice / Email</h3>
+              <button
+                type="button"
+                className="modal-close-btn"
+                onClick={() => setShowPasteModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handlePasteSubmit} className="modal-body">
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>
+                Paste the plain text of an academic email, syllabus excerpt, or announcement. Deadlines and priorities will be deterministically computed.
+              </p>
+
               <div className="form-group">
-                <label htmlFor="edit-title">Title *</label>
+                <label className="form-label">Subject / Title (optional)</label>
                 <input
-                  id="edit-title"
                   type="text"
-                  required
-                  value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
+                  placeholder="e.g. Midterm Announcement CS 101"
+                  value={pasteSourceTitle}
+                  onChange={(e) => setPasteSourceTitle(e.target.value)}
+                  className="form-input"
                 />
               </div>
 
-              <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">Sender (optional)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Professor Smith"
+                  value={pasteSender}
+                  onChange={(e) => setPasteSender(e.target.value)}
+                  className="form-input"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Notice / Email Body *</label>
+                <textarea
+                  required
+                  placeholder="Paste message contents here..."
+                  value={pasteEvidence}
+                  onChange={(e) => setPasteEvidence(e.target.value)}
+                  className="form-textarea"
+                />
+              </div>
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowPasteModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={pasteSubmitting}
+                >
+                  {pasteSubmitting ? 'Ingesting...' : 'Ingest & Compute Priority'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ====================================================================
+          Edit Item Modal
+          ==================================================================== */}
+      {editingItem && (
+        <div className="modal-overlay" onClick={() => setEditingItem(null)} role="dialog" aria-modal="true">
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Edit Item</h3>
+              <button
+                type="button"
+                className="modal-close-btn"
+                onClick={() => setEditingItem(null)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="modal-body">
+              <div className="form-group">
+                <label className="form-label">Title</label>
+                <input
+                  type="text"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  className="form-input"
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                 <div className="form-group">
-                  <label htmlFor="edit-kind">Kind</label>
+                  <label className="form-label">Kind</label>
                   <select
-                    id="edit-kind"
                     value={editKind}
                     onChange={(e) => setEditKind(e.target.value as ItemKind)}
+                    className="form-input"
                   >
                     <option value="assignment">Assignment</option>
                     <option value="assessment">Assessment</option>
                     <option value="announcement">Announcement</option>
-                    <option value="recruiter">Recruiter</option>
                     <option value="interview">Interview</option>
-                    <option value="document_request">Document Request</option>
-                    <option value="event">Event</option>
                     <option value="meeting">Meeting</option>
+                    <option value="event">Event</option>
+                    <option value="recruiter">Recruiter</option>
+                    <option value="document_request">Document Request</option>
                     <option value="routine">Routine</option>
                     <option value="other">Other</option>
                   </select>
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="edit-type">Item Type</label>
+                  <label className="form-label">Type</label>
                   <select
-                    id="edit-type"
                     value={editItemType}
                     onChange={(e) => setEditItemType(e.target.value as ItemType)}
+                    className="form-input"
                   >
                     <option value="task">Task</option>
                     <option value="information">Information</option>
@@ -1696,62 +1822,50 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="form-group">
-                <label htmlFor="edit-duration">
-                  Duration (minutes)
-                  <span className="field-note">(For assessments; 5 to 600 min)</span>
-                </label>
-                <input
-                  id="edit-duration"
-                  type="number"
-                  min="5"
-                  max="600"
-                  placeholder="e.g. 45"
-                  value={editDurationMinutes}
-                  onChange={(e) => setEditDurationMinutes(e.target.value)}
-                />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div className="form-group">
+                  <label className="form-label">Confirmed Deadline</label>
+                  <input
+                    type="datetime-local"
+                    value={editDeadlineAt}
+                    onChange={(e) => setEditDeadlineAt(e.target.value)}
+                    className="form-input"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Duration (minutes)</label>
+                  <input
+                    type="number"
+                    placeholder="e.g. 45"
+                    value={editDurationMinutes}
+                    onChange={(e) => setEditDurationMinutes(e.target.value)}
+                    className="form-input"
+                  />
+                </div>
               </div>
 
               <div className="form-group">
-                <label htmlFor="edit-deadline-text">Deadline Text</label>
+                <label className="form-label">Deadline Text (Display / Ambiguous)</label>
                 <input
-                  id="edit-deadline-text"
                   type="text"
-                  placeholder="e.g. Next Friday 5 PM"
                   value={editDeadlineText}
                   onChange={(e) => setEditDeadlineText(e.target.value)}
+                  className="form-input"
                 />
               </div>
 
               <div className="form-group">
-                <label htmlFor="edit-deadline-at">
-                  Deadline Date &amp; Time
-                  <span className="field-note">
-                    (Shown in your browser time zone: <strong>{localTimezone}</strong>; saved as UTC)
-                  </span>
-                </label>
-                <input
-                  id="edit-deadline-at"
-                  type="datetime-local"
-                  value={editDeadlineAt}
-                  onChange={(e) => setEditDeadlineAt(e.target.value)}
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="edit-priority-override">
-                  Priority Override
-                  <span className="field-note">(Override set by you)</span>
-                </label>
+                <label className="form-label">Priority Override</label>
                 <select
-                  id="edit-priority-override"
                   value={editPriorityOverride}
                   onChange={(e) => setEditPriorityOverride(e.target.value)}
+                  className="form-input"
                 >
-                  <option value="none">None (Use system priority: {editingItem.priority})</option>
-                  <option value="normal">Normal</option>
-                  <option value="important">Important</option>
+                  <option value="none">None (Automatic Deterministic Priority)</option>
                   <option value="urgent">Urgent</option>
+                  <option value="important">Important</option>
+                  <option value="normal">Normal</option>
                 </select>
               </div>
 
@@ -1763,330 +1877,207 @@ export default function App() {
                 >
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-primary">
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={handleSaveEdit}
+                >
                   Save Changes
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Manual Paste Modal */}
-      {showPasteModal && (
-        <div className="modal-overlay" role="dialog" aria-modal="true">
-          <div className="modal-card">
+      {/* ====================================================================
+          System Diagnostics Modal
+          ==================================================================== */}
+      {showSystemStatusModal && (
+        <div className="modal-overlay" onClick={() => setShowSystemStatusModal(false)} role="dialog" aria-modal="true">
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Paste Email or Announcement</h3>
-              <button className="btn-icon" onClick={() => setShowPasteModal(false)}>
+              <h3>System Diagnostics</h3>
+              <button
+                type="button"
+                className="modal-close-btn"
+                onClick={() => setShowSystemStatusModal(false)}
+              >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleManualSubmit} className="form">
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="paste-source">Source Title / Course (optional)</label>
-                  <input
-                    id="paste-source"
-                    type="text"
-                    placeholder="e.g. CS 101 or Initech Careers"
-                    value={pasteSourceTitle}
-                    onChange={(e) => setPasteSourceTitle(e.target.value)}
-                  />
-                </div>
+            <div className="modal-body">
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                Diagnostic verification of local services and integrations. No credentials or tokens are exposed.
+              </p>
 
-                <div className="form-group">
-                  <label htmlFor="paste-sender">Sender Email / Name (optional)</label>
-                  <input
-                    id="paste-sender"
-                    type="text"
-                    placeholder="e.g. professor@college.edu"
-                    value={pasteSender}
-                    onChange={(e) => setPasteSender(e.target.value)}
-                  />
-                </div>
-              </div>
+              {loadingSystemStatus ? (
+                <div style={{ textAlign: 'center', padding: '2rem' }}>Inspecting local services...</div>
+              ) : systemStatus ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', margin: '0.5rem 0' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid var(--border-subtle)' }}>
+                    <strong>Database Health:</strong>
+                    <span className={`badge ${systemStatus.database_ok ? 'badge-source-classroom' : 'badge-urgent'}`}>
+                      {systemStatus.database_ok ? 'SQLite Connected' : 'Database Error'}
+                    </span>
+                  </div>
 
-              <div className="form-group">
-                <label htmlFor="paste-evidence">Pasted Email / Announcement Text *</label>
-                <textarea
-                  id="paste-evidence"
-                  rows={8}
-                  required
-                  placeholder="Paste the raw email, notification, or classroom announcement text here..."
-                  value={pasteEvidence}
-                  onChange={(e) => setPasteEvidence(e.target.value)}
-                ></textarea>
-              </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid var(--border-subtle)' }}>
+                    <strong>Gmail OAuth Token:</strong>
+                    <span className={`badge ${systemStatus.gmail_token_present ? 'badge-source-gmail' : 'badge-important'}`}>
+                      {systemStatus.gmail_token_present ? 'Authorized' : 'Reconnect Needed'}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid var(--border-subtle)' }}>
+                    <strong>Classroom OAuth Token:</strong>
+                    <span className={`badge ${systemStatus.classroom_token_present ? 'badge-source-classroom' : 'badge-important'}`}>
+                      {systemStatus.classroom_token_present ? 'Authorized' : 'Reconnect Needed'}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid var(--border-subtle)' }}>
+                    <strong>Push Notifications (ntfy):</strong>
+                    <span className={`badge ${systemStatus.ntfy_configured ? 'badge-kind' : 'badge-state'}`}>
+                      {systemStatus.ntfy_configured ? 'Configured' : 'Local Only'}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid var(--border-subtle)' }}>
+                    <strong>Extraction Engine:</strong>
+                    <span className="badge badge-kind">
+                      {systemStatus.ollama ? systemStatus.ollama.provider.toUpperCase() : 'RULES'}
+                    </span>
+                  </div>
+
+                  {systemStatus.ollama && systemStatus.ollama.provider === 'ollama' && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid var(--border-subtle)' }}>
+                      <strong>Ollama Model Status:</strong>
+                      <span className={`badge ${systemStatus.ollama.reachable && systemStatus.ollama.model_present ? 'badge-source-classroom' : 'badge-important'}`}>
+                        {systemStatus.ollama.reachable
+                          ? (systemStatus.ollama.model_present
+                              ? `${systemStatus.ollama.configured_model} Ready`
+                              : `Missing ${systemStatus.ollama.configured_model}`)
+                          : 'Unreachable (Rules Fallback)'}
+                      </span>
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid var(--border-subtle)' }}>
+                    <strong>Scheduler (APScheduler):</strong>
+                    <span className={`badge ${systemStatus.scheduler_running ? 'badge-source-classroom' : 'badge-state'}`}>
+                      {systemStatus.scheduler_running ? 'Running' : 'Stopped'}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', fontSize: '0.85rem' }}>
+                    <strong>ClassMail J Version:</strong>
+                    <span>v{systemStatus.version}</span>
+                  </div>
+                </div>
+              ) : (
+                <p>Failed to load system diagnostics.</p>
+              )}
 
               <div className="modal-actions">
                 <button
                   type="button"
                   className="btn btn-secondary"
-                  onClick={() => setShowPasteModal(false)}
+                  onClick={loadSystemStatus}
+                  disabled={loadingSystemStatus}
                 >
-                  Cancel
+                  Refresh Diagnostics
                 </button>
-                <button type="submit" className="btn btn-primary" disabled={pasteSubmitting}>
-                  {pasteSubmitting ? 'Analyzing & Ingesting...' : 'Analyze & Ingest'}
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => setShowSystemStatusModal(false)}
+                >
+                  Done
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Notifications Panel Modal */}
+      {/* ====================================================================
+          Reminders & Notifications Modal
+          ==================================================================== */}
       {showNotificationsModal && (
-        <div className="modal-overlay" role="dialog" aria-modal="true">
-          <div className="modal-card modal-large">
+        <div className="modal-overlay" onClick={() => setShowNotificationsModal(false)} role="dialog" aria-modal="true">
+          <div className="modal-card modal-card-lg" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>🔔 Reminders &amp; Notification Center</h3>
-              <button className="btn-icon" onClick={() => setShowNotificationsModal(false)}>
+              <h3>Reminders & Push Alerts</h3>
+              <button
+                type="button"
+                className="modal-close-btn"
+                onClick={() => setShowNotificationsModal(false)}
+              >
                 ✕
               </button>
             </div>
 
-            <div className="notif-modal-content">
-              {/* Status Header Cards */}
-              <div className="notif-status-grid">
-                <div className="notif-card">
-                  <span className="notif-card-label">System Status</span>
-                  <div className="notif-card-value">
-                    {notifStatus?.notifications_enabled ? (
-                      <span className="badge badge-success">✓ Active</span>
-                    ) : (
-                      <span className="badge badge-neutral">Paused</span>
-                    )}
+            <div className="modal-body">
+              {notifStatus && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.85rem 1rem', background: '#F7F7F5', borderRadius: '12px', fontSize: '0.85rem' }}>
+                  <div>
+                    <strong>Push Channel:</strong> {notifStatus.ntfy_configured ? 'ntfy.sh (Configured)' : 'Local Only'}<br />
+                    <span style={{ color: 'var(--text-secondary)' }}>
+                      Quiet Hours: {notifStatus.quiet_hours_start} - {notifStatus.quiet_hours_end} (Urgent bypass: {notifStatus.urgent_bypass_quiet ? 'Yes' : 'No'})
+                    </span>
                   </div>
-                  <button
-                    className="btn btn-outline btn-xs"
-                    onClick={handleToggleNotifications}
-                    disabled={togglingNotif}
-                  >
-                    {togglingNotif ? 'Updating...' : notifStatus?.notifications_enabled ? 'Pause Notifications' : 'Enable Notifications'}
-                  </button>
-                </div>
 
-                <div className="notif-card">
-                  <span className="notif-card-label">ntfy Channel</span>
-                  <div className="notif-card-value">
-                    {notifStatus?.ntfy_configured ? (
-                      <span className="badge badge-ntfy">✓ Configured</span>
-                    ) : (
-                      <span className="badge badge-warning">Local only</span>
-                    )}
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      onClick={handleToggleNotifications}
+                      disabled={togglingNotif}
+                    >
+                      {notifStatus.notifications_enabled ? 'Pause Alerts' : 'Enable Alerts'}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      onClick={handleSendTestNotification}
+                      disabled={testingNotification}
+                    >
+                      {testingNotification ? 'Sending...' : 'Send Test Alert'}
+                    </button>
                   </div>
-                  <span className="notif-card-hint">
-                    {notifStatus?.ntfy_configured ? 'Pushing to ntfy server' : 'Set NTFY_TOPIC in .env to enable'}
-                  </span>
-                </div>
-
-                <div className="notif-card">
-                  <span className="notif-card-label">Quiet Hours</span>
-                  <div className="notif-card-value">
-                    <strong>{notifStatus?.quiet_hours_start || '22:00'} - {notifStatus?.quiet_hours_end || '07:00'}</strong>
-                  </div>
-                  <span className="notif-card-hint">
-                    {notifStatus?.urgent_bypass_quiet ? 'Urgent alerts bypass' : 'Deferred until morning'}
-                  </span>
-                </div>
-
-                <div className="notif-card">
-                  <span className="notif-card-label">Frequency Cap</span>
-                  <div className="notif-card-value">
-                    <strong>Max {notifStatus?.max_per_hour || 5} / hour</strong>
-                  </div>
-                  <span className="notif-card-hint">
-                    {notifStatus?.recent_count || 0} sent in last hour
-                  </span>
-                </div>
-              </div>
-
-              {/* Action Banner */}
-              <div className="notif-test-bar">
-                <div>
-                  <strong>Test Notification Delivery</strong>
-                  <p className="notif-subtext">Sends a minimal test message and records it in the delivery log.</p>
-                </div>
-                <button
-                  className="btn btn-primary"
-                  onClick={handleSendTestNotification}
-                  disabled={testingNotification}
-                >
-                  {testingNotification ? '⏳ Sending Test...' : '🔔 Send Test Alert'}
-                </button>
-              </div>
-
-              {testNotifResult && (
-                <div className={`alert ${testNotifResult.status === 'delivered' ? 'alert-success' : 'alert-warning'}`}>
-                  <span>
-                    Test notification {testNotifResult.outcome} via <strong>{testNotifResult.channel.toUpperCase()}</strong> channel.
-                    {testNotifResult.error && ` (${testNotifResult.error})`}
-                  </span>
-                  <button className="alert-close" onClick={() => setTestNotifResult(null)}>×</button>
                 </div>
               )}
 
-              {/* Logs Table */}
-              <div className="notif-logs-section">
-                <h4>Recent Notification Logs</h4>
+              {testNotifResult && (
+                <div style={{ padding: '0.65rem 1rem', background: testNotifResult.status === 'ok' ? '#ECFDF5' : '#FEF2F2', borderRadius: '8px', fontSize: '0.85rem' }}>
+                  Result: {testNotifResult.outcome} ({testNotifResult.channel})
+                </div>
+              )}
+
+              <h4 style={{ fontSize: '0.9rem', fontWeight: 600, marginTop: '0.5rem' }}>Recent Dispatched Notifications:</h4>
+              <div style={{ maxHeight: '280px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                 {notificationLogs.length === 0 ? (
-                  <p className="empty-logs">No notification logs recorded yet.</p>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>No recent notification activity.</p>
                 ) : (
-                  <div className="table-responsive">
-                    <table className="logs-table">
-                      <thead>
-                        <tr>
-                          <th>Time</th>
-                          <th>Scheduled For</th>
-                          <th>Delay</th>
-                          <th>Channel</th>
-                          <th>Title</th>
-                          <th>Outcome</th>
-                          <th>Error / Details</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {notificationLogs.map((log) => (
-                          <tr key={log.id}>
-                            <td className="log-time">{formatDateTimeWithTz(log.at)}</td>
-                            <td className="log-scheduled">{log.scheduled_for ? formatDateTimeWithTz(log.scheduled_for) : '—'}</td>
-                            <td className="log-delay">
-                              {log.delay_seconds != null ? (
-                                log.delay_seconds > 0 ? (
-                                  <span className="delay-late">+{log.delay_seconds}s</span>
-                                ) : (
-                                  <span className="delay-ontime">on-time</span>
-                                )
-                              ) : (
-                                '—'
-                              )}
-                            </td>
-                            <td>
-                              <span className={`badge badge-${log.channel}`}>
-                                {log.channel.toUpperCase()}
-                              </span>
-                            </td>
-                            <td className="log-title">{log.title}</td>
-                            <td>
-                              <span className={`badge badge-outcome badge-${log.outcome}`}>
-                                {log.outcome}
-                              </span>
-                            </td>
-                            <td className="log-error">{log.error || '—'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                  notificationLogs.map((log) => (
+                    <div key={log.id} style={{ padding: '0.65rem 0.85rem', background: '#FFFFFF', border: '1px solid var(--border-subtle)', borderRadius: '8px', fontSize: '0.82rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
+                        <strong>{log.title}</strong>
+                        <span style={{ color: 'var(--text-tertiary)' }}>{formatDateTimeWithTz(log.at)}</span>
+                      </div>
+                      <div style={{ color: 'var(--text-secondary)' }}>{log.body}</div>
+                    </div>
+                  ))
                 )}
               </div>
 
               <div className="modal-actions">
                 <button
                   type="button"
-                  className="btn btn-secondary"
+                  className="btn btn-primary"
                   onClick={() => setShowNotificationsModal(false)}
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* System Status Modal */}
-      {showSystemStatusModal && (
-        <div className="modal-backdrop" onClick={() => setShowSystemStatusModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px' }}>
-            <div className="modal-header">
-              <h2>⚙️ System Diagnostics & Status</h2>
-              <button
-                type="button"
-                className="btn-icon"
-                onClick={() => setShowSystemStatusModal(false)}
-              >
-                ✕
-              </button>
-            </div>
-            <div className="modal-content">
-              <p style={{ color: '#64748b', fontSize: '0.875rem', marginTop: 0 }}>
-                Diagnostic verification of local services and integrations. No secrets or credentials are ever exposed.
-              </p>
-
-              {loadingSystemStatus ? (
-                <div style={{ textAlign: 'center', padding: '2rem' }}>Loading system diagnostics...</div>
-              ) : systemStatus ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', margin: '1rem 0' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid #e2e8f0' }}>
-                    <strong>Database Health:</strong>
-                    <span className={systemStatus.database_ok ? 'badge badge-success' : 'badge badge-danger'}>
-                      {systemStatus.database_ok ? '✓ SQLite Connected' : '❌ Database Error'}
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid #e2e8f0' }}>
-                    <strong>Gmail OAuth Token:</strong>
-                    <span className={systemStatus.gmail_token_present ? 'badge badge-gmail' : 'badge badge-warning'}>
-                      {systemStatus.gmail_token_present ? '✓ Authorized' : '⚠️ Reconnect Needed'}
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid #e2e8f0' }}>
-                    <strong>Classroom OAuth Token:</strong>
-                    <span className={systemStatus.classroom_token_present ? 'badge badge-classroom' : 'badge badge-warning'}>
-                      {systemStatus.classroom_token_present ? '✓ Authorized' : '⚠️ Reconnect Needed'}
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid #e2e8f0' }}>
-                    <strong>Push Notifications (ntfy):</strong>
-                    <span className={systemStatus.ntfy_configured ? 'badge badge-ntfy' : 'badge badge-neutral'}>
-                      {systemStatus.ntfy_configured ? '✓ Configured' : 'Local Only'}
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid #e2e8f0' }}>
-                    <strong>Scheduler (APScheduler):</strong>
-                    <span className={systemStatus.scheduler_running ? 'badge badge-success' : 'badge badge-neutral'}>
-                      {systemStatus.scheduler_running ? '✓ Running' : 'Stopped'}
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid #e2e8f0' }}>
-                    <strong>Auto-sync:</strong>
-                    <span className={systemStatus.auto_sync_enabled ? 'badge badge-success' : 'badge badge-neutral'}>
-                      {systemStatus.auto_sync_enabled ? 'Active' : 'Paused'}
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid #e2e8f0', fontSize: '0.875rem' }}>
-                    <strong>Last Gmail Sync:</strong>
-                    <span>{formatDateTimeWithTz(systemStatus.last_sync_gmail) || 'Not synced yet'}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid #e2e8f0', fontSize: '0.875rem' }}>
-                    <strong>Last Classroom Sync:</strong>
-                    <span>{formatDateTimeWithTz(systemStatus.last_sync_classroom) || 'Not synced yet'}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', fontSize: '0.875rem', color: '#64748b' }}>
-                    <strong>ClassMail J Version:</strong>
-                    <span>v{systemStatus.version}</span>
-                  </div>
-                </div>
-              ) : (
-                <div>Unable to retrieve system diagnostics.</div>
-              )}
-
-              <div className="modal-actions" style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-                <button
-                  type="button"
-                  className="btn btn-outline"
-                  onClick={loadSystemStatus}
-                  disabled={loadingSystemStatus}
-                >
-                  Refresh
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => setShowSystemStatusModal(false)}
                 >
                   Close
                 </button>

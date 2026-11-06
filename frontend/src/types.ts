@@ -59,6 +59,7 @@ export interface Item {
   deadline_changed_at?: string | null;
   next_reminder_at?: string | null;
   next_reminder_kind?: string | null;
+  extraction_provider?: string | null;
 }
 
 export interface SyncCounts {
@@ -189,6 +190,16 @@ export interface NotificationStatus {
   recent_count: number;
 }
 
+export interface OllamaStatusResponse {
+  provider: string;
+  reachable: boolean;
+  model_present: boolean;
+  configured_model: string;
+  url: string;
+  available_models?: string[];
+  error?: string | null;
+}
+
 export interface SystemStatusResponse {
   database_ok: boolean;
   gmail_token_present: boolean;
@@ -199,6 +210,7 @@ export interface SystemStatusResponse {
   last_sync_gmail?: string | null;
   last_sync_classroom?: string | null;
   version: string;
+  ollama?: OllamaStatusResponse | null;
 }
 
 export interface AuthMeResponse {

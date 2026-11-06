@@ -10,6 +10,7 @@ import type {
   ItemUpdateParams,
   NotificationLogEntry,
   NotificationStatus,
+  OllamaStatusResponse,
   Priority,
   Reminder,
   SyncResult,
@@ -189,6 +190,9 @@ export const api = {
 
   getSystemStatus: () =>
     request<SystemStatusResponse>('/api/system/status'),
+
+  getOllamaStatus: () =>
+    request<OllamaStatusResponse>('/api/ollama/status'),
 
   getAuthMe: () =>
     request<AuthMeResponse>('/api/auth/me'),
