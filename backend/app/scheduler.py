@@ -7,20 +7,23 @@ and persists user toggle in settings.
 """
 
 import logging
+from pathlib import Path
 import threading
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Optional
 
 from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
 import app.config
+from app.config import CLASSROOM_TOKEN_FILE, GMAIL_TOKEN_FILE
 from app.db import get_connection, get_setting, set_setting, utc_now_iso
 from app.integrations.classroom_client import BaseClassroomClient, ClassroomAuthError
 from app.integrations.classroom_sync import sync_classroom
 from app.integrations.gmail_client import BaseGmailClient, GmailAuthError
 from app.integrations.sync_service import sync_gmail
-from app.reminders import BaseNtfyClient, run_reminder_tick
+from app.reminders import BaseNtfyClient, parse_utc_iso, run_reminder_tick
 from app.models import (
     ClassroomSyncCounts,
     ClassroomSyncResultResponse,
@@ -193,8 +196,58 @@ class SyncSchedulerManager:
         except Exception as e:
             logger.warning(f"Scheduler already running or failed to start: {e}")
 
+        # Re-create pending one-shot jobs for time-critical reminders at startup
+        self.rebuild_oneshot_reminder_jobs()
+
         if not self.auto_sync_enabled or (self.reconnect_needed and self.classroom_reconnect_needed):
             self._pause_job()
+
+    def schedule_oneshot_reminder(self, reminder_id: int, run_date: datetime) -> None:
+        """Schedule a time-critical reminder as an exact one-shot DateTrigger job."""
+        job_id = f"reminder_oneshot_{reminder_id}"
+        try:
+            self.scheduler.add_job(
+                self._reminder_tick_listener,
+                trigger=DateTrigger(run_date=run_date),
+                id=job_id,
+                max_instances=1,
+                coalesce=True,
+                replace_existing=True,
+            )
+        except Exception as e:
+            logger.warning(f"Failed to schedule one-shot reminder job {job_id}: {e}")
+
+    def rebuild_oneshot_reminder_jobs(self, conn: Optional[sqlite3.Connection] = None) -> int:
+        """Re-create pending one-shot jobs for all time-critical reminders at startup."""
+        should_close = False
+        if conn is None:
+            conn = get_connection()
+            should_close = True
+        scheduled_count = 0
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT id, kind, scheduled_for, reason FROM reminders
+                WHERE status = 'pending'
+                  AND (
+                    kind IN ('latest_start', 'latest_start_passed')
+                    OR reason = 'final_submission_nudge'
+                    OR kind IN ('deadline_45m', 'deadline_15m')
+                  );
+                """
+            )
+            rows = [dict(r) for r in cur.fetchall()]
+            now_dt = self.now()
+            for r in rows:
+                dt = parse_utc_iso(r["scheduled_for"])
+                if dt and dt > now_dt:
+                    self.schedule_oneshot_reminder(r["id"], dt)
+                    scheduled_count += 1
+            return scheduled_count
+        finally:
+            if should_close:
+                conn.close()
 
     def shutdown(self) -> None:
         """Gracefully stop the background scheduler."""
@@ -227,10 +280,16 @@ class SyncSchedulerManager:
         """Target called by APScheduler for scheduled runs."""
         if not self.auto_sync_enabled or not self.scheduler_enabled:
             return
-        # Run Gmail sync
-        self.run_sync(is_manual=False)
-        # Run Classroom sync
-        self.run_classroom_sync(is_manual=False)
+        # Run Gmail sync with failure isolation
+        try:
+            self.run_sync(is_manual=False)
+        except Exception as e:
+            logger.warning(f"Error during background Gmail sync: {e}")
+        # Run Classroom sync with failure isolation
+        try:
+            self.run_classroom_sync(is_manual=False)
+        except Exception as e:
+            logger.warning(f"Error during background Classroom sync: {e}")
 
     def _reminder_tick_listener(self) -> None:
         """Target called by APScheduler for reminder ticks."""

@@ -56,8 +56,8 @@ def client_with_db(tmp_path, monkeypatch):
             "The midterm is a 90-minute exam covering chapters 1 through 4. No action required.",
             "Exam announcement",
             DeadlineStatus.NONE,
-            ItemType.INFORMATION,
-            ItemKind.ANNOUNCEMENT,
+            ItemType.TASK,
+            ItemKind.ASSESSMENT,
             None,
         ),
         # Newsletter -> information / routine

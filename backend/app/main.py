@@ -1,14 +1,43 @@
 import hashlib
+import html
 import json
+import logging
+import secrets
 import sqlite3
+import threading
+import urllib.parse
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, List, Optional
-from fastapi import FastAPI, HTTPException, Query, Response, status
+from fastapi import FastAPI, HTTPException, Query, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel, Field
 
-from app.config import ALLOWED_ORIGINS, APP_VERSION, TIMEZONE
+logger = logging.getLogger("classmail.api")
+
+from app.auth import (
+    ALL_AUTH_SCOPES,
+    CLASSROOM_READONLY_SCOPES,
+    GMAIL_READONLY_SCOPE,
+    auth_rate_limiter,
+    consume_auth_state,
+    create_session,
+    delete_session,
+    exchange_code_for_tokens,
+    generate_pkce_pair,
+    get_session_from_cookie,
+    load_web_client_config,
+    revoke_google_token,
+    save_auth_state,
+    save_service_token_file,
+    verify_google_id_token,
+    verify_signed_session_id,
+)
+from app import config as app_config
+from app.config import ALLOWED_ORIGINS, APP_VERSION, TIMEZONE, validate_auth_config
 from app.db import check_db_health, get_connection, init_db, utc_now_iso
 from app.demo_data import get_demo_items
 from app.extraction import RulesProvider
@@ -28,6 +57,7 @@ from app.models import (
     Priority,
     ReanalyzeCounts,
     ReanalyzeResultResponse,
+    ReminderResponse,
     SnoozeRequest,
     SourceType,
     SyncResultResponse,
@@ -51,6 +81,18 @@ class HealthResponse(BaseModel):
     version: str
 
 
+class SystemStatusResponse(BaseModel):
+    database_ok: bool
+    gmail_token_present: bool
+    classroom_token_present: bool
+    ntfy_configured: bool
+    scheduler_running: bool
+    auto_sync_enabled: bool
+    last_sync_gmail: Optional[str] = None
+    last_sync_classroom: Optional[str] = None
+    version: str
+
+
 class ManualIngestRequest(BaseModel):
     source_title: Optional[str] = Field(default=None, max_length=500)
     sender: Optional[str] = Field(default=None, max_length=500)
@@ -65,6 +107,8 @@ class IngestResponse(BaseModel):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Validate auth configuration if enabled
+    validate_auth_config()
     # Initialize the SQLite schema on startup
     init_db()
     sync_scheduler.start()
@@ -78,6 +122,12 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Host validation defense: restrict to loopback / local hosts
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=["localhost", "127.0.0.1", "testserver"],
+)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
@@ -85,6 +135,180 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def check_origin_middleware(request: Request, call_next):
+    # Enforce origin check on state-changing requests when Origin header is sent by browsers
+    if request.method in ("POST", "PATCH", "DELETE", "PUT"):
+        origin = request.headers.get("origin")
+        if origin:
+            norm_origin = origin.rstrip("/")
+            allowed = {o.rstrip("/") for o in ALLOWED_ORIGINS}
+            if norm_origin not in allowed:
+                return JSONResponse(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    content={"detail": "Forbidden: Request origin not allowed."},
+                )
+    return await call_next(request)
+
+
+@app.middleware("http")
+async def auth_enforcement_middleware(request: Request, call_next):
+    if request.method == "OPTIONS":
+        return await call_next(request)
+
+    if app_config.AUTH_ENABLED and request.url.path.startswith("/api"):
+        path = request.url.path
+        if not (path == "/api/health" or path.startswith("/api/auth/")):
+            conn = get_connection()
+            try:
+                sess = get_session_from_cookie(request, conn)
+                if not sess:
+                    return JSONResponse(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        content={"detail": "Unauthorized"},
+                    )
+                request.state.session_user = sess["email"]
+            finally:
+                conn.close()
+
+    return await call_next(request)
+
+
+NOT_ALLOWED_HTML = """<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>ClassMail J - Access Not Allowed</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0f172a;
+      color: #f8fafc;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 1rem;
+      box-sizing: border-box;
+    }
+    .card {
+      background: #1e293b;
+      padding: 2.5rem 2rem;
+      border-radius: 0.75rem;
+      max-width: 440px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+      border: 1px solid #334155;
+    }
+    .badge {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 9999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+    }
+    h1 { font-size: 1.4rem; margin: 0 0 0.75rem; color: #ffffff; }
+    p { font-size: 0.925rem; line-height: 1.5; color: #94a3b8; margin: 0 0 1.5rem; }
+    .btn {
+      display: inline-block;
+      background: #2563eb;
+      color: #ffffff;
+      text-decoration: none;
+      padding: 0.65rem 1.25rem;
+      border-radius: 0.375rem;
+      font-weight: 500;
+      font-size: 0.9rem;
+      transition: background 0.15s ease;
+    }
+    .btn:hover { background: #1d4ed8; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="badge">403 Forbidden</div>
+    <h1>Access Not Allowed</h1>
+    <p>This ClassMail J instance is restricted to its designated owner. The Google account you signed in with is not authorized.</p>
+    <a href="/api/auth/google/start" class="btn">Sign in with Owner Account</a>
+  </div>
+</body>
+</html>"""
+
+
+def render_auth_error_page(message: str) -> str:
+    safe_msg = html.escape(message)
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>ClassMail J - Authentication Error</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {{
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0f172a;
+      color: #f8fafc;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 1rem;
+      box-sizing: border-box;
+    }}
+    .card {{
+      background: #1e293b;
+      padding: 2.5rem 2rem;
+      border-radius: 0.75rem;
+      max-width: 440px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+      border: 1px solid #334155;
+    }}
+    .badge {{
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      background: rgba(245, 158, 11, 0.15);
+      color: #fbbf24;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      border-radius: 9999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+    }}
+    h1 {{ font-size: 1.4rem; margin: 0 0 0.75rem; color: #ffffff; }}
+    p {{ font-size: 0.925rem; line-height: 1.5; color: #94a3b8; margin: 0 0 1.5rem; }}
+    .btn {{
+      display: inline-block;
+      background: #2563eb;
+      color: #ffffff;
+      text-decoration: none;
+      padding: 0.65rem 1.25rem;
+      border-radius: 0.375rem;
+      font-weight: 500;
+      font-size: 0.9rem;
+    }}
+    .btn:hover {{ background: #1d4ed8; }}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="badge">OAuth Error</div>
+    <h1>Authentication Failed</h1>
+    <p>{safe_msg}</p>
+    <a href="/api/auth/google/start" class="btn">Try Again</a>
+  </div>
+</body>
+</html>"""
 
 
 def _fetch_item_or_404(conn: sqlite3.Connection, item_id: int) -> dict[str, Any]:
@@ -270,13 +494,13 @@ def create_item(payload: ItemCreate) -> ItemResponse:
                 INSERT INTO items (
                     title, item_type, kind, summary, priority, priority_reason, priority_override,
                     extraction_confidence, state, deadline_text, deadline_at, deadline_status,
-                    links, source_type, source_id, thread_id, source_title, sender, received_at, evidence,
-                    is_demo, created_at, updated_at
+                    duration_minutes, links, source_type, source_id, thread_id, source_title, sender, received_at, evidence,
+                    source_status, is_demo, created_at, updated_at
                 ) VALUES (
                     ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?
                 );
                 """,
                 (
@@ -292,6 +516,7 @@ def create_item(payload: ItemCreate) -> ItemResponse:
                     payload.deadline_text,
                     payload.deadline_at,
                     payload.deadline_status.value,
+                    payload.duration_minutes,
                     links_json,
                     payload.source_type.value,
                     payload.source_id,
@@ -300,6 +525,7 @@ def create_item(payload: ItemCreate) -> ItemResponse:
                     payload.sender,
                     payload.received_at,
                     payload.evidence,
+                    payload.source_status,
                     1 if payload.is_demo else 0,
                     now_iso,
                     now_iso,
@@ -373,12 +599,12 @@ def ingest_manual(payload: ManualIngestRequest, response: Response) -> IngestRes
             INSERT INTO items (
                 title, item_type, kind, summary, priority, priority_reason, priority_override,
                 extraction_confidence, state, deadline_text, deadline_at, deadline_status,
-                links, source_type, source_id, source_title, sender, received_at, evidence,
+                duration_minutes, links, source_type, source_id, source_title, sender, received_at, evidence,
                 is_demo, created_at, updated_at
             ) VALUES (
                 ?, ?, ?, ?, ?, ?, ?,
                 ?, ?, ?, ?, ?,
-                ?, ?, ?, ?, ?, ?, ?,
+                ?, ?, ?, ?, ?, ?, ?, ?,
                 ?, ?, ?
             );
             """,
@@ -395,6 +621,7 @@ def ingest_manual(payload: ManualIngestRequest, response: Response) -> IngestRes
                 ext_res.deadline_text,
                 ext_res.deadline_at,
                 ext_res.deadline_status.value,
+                ext_res.duration_minutes,
                 links_json,
                 "manual",
                 source_id,
@@ -632,12 +859,12 @@ def seed_demo():
                 INSERT INTO items (
                     title, item_type, kind, summary, priority, priority_reason, priority_override,
                     extraction_confidence, state, deadline_text, deadline_at, deadline_status,
-                    links, source_type, source_id, source_title, sender, received_at, evidence,
+                    duration_minutes, links, source_type, source_id, source_title, sender, received_at, evidence,
                     is_demo, created_at, updated_at
                 ) VALUES (
                     ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?
                 );
                 """,
@@ -654,6 +881,7 @@ def seed_demo():
                     item.get("deadline_text"),
                     item.get("deadline_at"),
                     item.get("deadline_status", "none"),
+                    item.get("duration_minutes"),
                     links_json,
                     item["source_type"],
                     item["source_id"],
@@ -682,6 +910,107 @@ def seed_demo():
         return {"status": "ok", "seeded": seeded_count, "total_demo": total_demo}
     finally:
         conn.close()
+
+
+@app.post("/api/demo/reset")
+def reset_demo():
+    """Clear all existing demo data and reload fresh relative-date demo items."""
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM items WHERE is_demo = 1;")
+        deleted_count = cur.rowcount
+        conn.commit()
+
+        now_dt = datetime.now(timezone.utc)
+        now_iso = utc_now_iso()
+        demo_items = get_demo_items(now_dt)
+        seeded_count = 0
+
+        for item in demo_items:
+            p, reason = recompute_priority(item, now=now_dt)
+            links_json = json.dumps(item.get("links", []))
+            cur.execute(
+                """
+                INSERT INTO items (
+                    title, item_type, kind, summary, priority, priority_reason, priority_override,
+                    extraction_confidence, state, deadline_text, deadline_at, deadline_status,
+                    duration_minutes, links, source_type, source_id, source_title, sender, received_at, evidence,
+                    is_demo, created_at, updated_at
+                ) VALUES (
+                    ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?
+                );
+                """,
+                (
+                    item["title"],
+                    item["item_type"],
+                    item["kind"],
+                    item.get("summary"),
+                    p.value,
+                    reason,
+                    item.get("priority_override"),
+                    item.get("extraction_confidence", 1.0),
+                    item["state"],
+                    item.get("deadline_text"),
+                    item.get("deadline_at"),
+                    item.get("deadline_status", "none"),
+                    item.get("duration_minutes"),
+                    links_json,
+                    item["source_type"],
+                    item["source_id"],
+                    item.get("source_title"),
+                    item.get("sender"),
+                    item.get("received_at"),
+                    item.get("evidence"),
+                    1,
+                    now_iso,
+                    now_iso,
+                ),
+            )
+            seeded_count += 1
+
+        conn.commit()
+
+        # Plan reminders for seeded demo items
+        cur.execute("SELECT * FROM items WHERE is_demo = 1;")
+        for demo_row in cur.fetchall():
+            plan_or_replan_item_reminders(dict(demo_row), conn, now_dt)
+        conn.commit()
+
+        cur.execute("SELECT COUNT(*) FROM items WHERE is_demo = 1;")
+        total_demo = cur.fetchone()[0]
+
+        return {"status": "ok", "deleted": deleted_count, "seeded": seeded_count, "total_demo": total_demo}
+    finally:
+        conn.close()
+
+
+@app.get("/api/system/status", response_model=SystemStatusResponse)
+def get_system_status_endpoint() -> SystemStatusResponse:
+    """Return diagnostic system status without revealing any credentials, tokens or secrets."""
+    from app.config import CLASSROOM_TOKEN_FILE, GMAIL_TOKEN_FILE, NTFY_TOPIC
+
+    db_health = check_db_health()
+    gmail_token_exists = Path(GMAIL_TOKEN_FILE).is_file()
+    classroom_token_exists = Path(CLASSROOM_TOKEN_FILE).is_file()
+    ntfy_configured = bool(NTFY_TOPIC and NTFY_TOPIC.strip())
+
+    sync_st = sync_scheduler.get_status()
+
+    return SystemStatusResponse(
+        database_ok=db_health.get("status") == "ok",
+        gmail_token_present=gmail_token_exists,
+        classroom_token_present=classroom_token_exists,
+        ntfy_configured=ntfy_configured,
+        scheduler_running=sync_scheduler.scheduler.running,
+        auto_sync_enabled=sync_st.auto_sync_enabled,
+        last_sync_gmail=sync_st.last_synced_at,
+        last_sync_classroom=sync_st.classroom_last_synced_at,
+        version=APP_VERSION,
+    )
 
 
 @app.delete("/api/demo")
@@ -780,6 +1109,7 @@ def _reanalyze_item_logic(
         ("deadline_text", ext_res.deadline_text, item_dict.get("deadline_text")),
         ("deadline_at", ext_res.deadline_at, item_dict.get("deadline_at")),
         ("deadline_status", ext_res.deadline_status.value, item_dict.get("deadline_status")),
+        ("duration_minutes", ext_res.duration_minutes, item_dict.get("duration_minutes")),
     ]
 
     update_fields: List[str] = []
@@ -903,7 +1233,7 @@ def get_notifications(limit: int = Query(50, ge=1, le=200)) -> List[Notification
         cur = conn.cursor()
         cur.execute(
             """
-            SELECT id, item_id, at, channel, title, body, outcome, error
+            SELECT id, item_id, at, channel, title, body, outcome, error, scheduled_for, delay_seconds
             FROM notification_log
             ORDER BY at DESC, id DESC
             LIMIT ?;
@@ -912,6 +1242,27 @@ def get_notifications(limit: int = Query(50, ge=1, le=200)) -> List[Notification
         )
         rows = [dict(r) for r in cur.fetchall()]
         return [NotificationLogEntry(**r) for r in rows]
+    finally:
+        conn.close()
+
+
+@app.get("/api/items/{item_id}/reminders", response_model=List[ReminderResponse])
+def get_item_reminders(item_id: int) -> List[ReminderResponse]:
+    conn = get_connection()
+    try:
+        _fetch_item_or_404(conn, item_id)
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT id, item_id, kind, scheduled_for, status, dedupe_key, reason, created_at, sent_at
+            FROM reminders
+            WHERE item_id = ?
+            ORDER BY scheduled_for ASC, id ASC;
+            """,
+            (item_id,),
+        )
+        rows = [dict(r) for r in cur.fetchall()]
+        return [ReminderResponse(**r) for r in rows]
     finally:
         conn.close()
 
@@ -946,3 +1297,359 @@ def update_notification_settings(payload: NotificationSettingsUpdate) -> Notific
         return NotificationStatusResponse(**st)
     finally:
         conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Google OpenID Connect & Unified Data Consent Endpoints
+# ---------------------------------------------------------------------------
+class DisconnectRequest(BaseModel):
+    source: str = Field(..., description="Source to disconnect: 'gmail' or 'classroom'")
+
+
+@app.get("/api/auth/google/start")
+def google_auth_start(request: Request):
+    """Initiate Google OAuth 2.0 / OpenID Connect authorization code flow with PKCE.
+
+    Requests OpenID identity plus read-only Gmail and Google Classroom scopes in one flow.
+    """
+    client_ip = request.client.host if request.client else "unknown"
+    if not auth_rate_limiter.is_allowed(client_ip):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many authentication requests. Please wait a moment.",
+        )
+
+    try:
+        client_cfg = load_web_client_config()
+    except Exception as e:
+        logger.error(f"Failed to load web OAuth client configuration: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="OAuth client configuration error. Please verify google_web_client.json.",
+        )
+
+    code_verifier, code_challenge = generate_pkce_pair()
+    state = secrets.token_urlsafe(32)
+    nonce = secrets.token_urlsafe(32)
+
+    conn = get_connection()
+    try:
+        save_auth_state(
+            conn,
+            state=state,
+            flow_type="login",
+            code_verifier=code_verifier,
+            nonce=nonce,
+            ttl_minutes=15,
+        )
+    finally:
+        conn.close()
+
+    params = {
+        "client_id": client_cfg["client_id"],
+        "redirect_uri": app_config.AUTH_REDIRECT_URI,
+        "response_type": "code",
+        "scope": " ".join(ALL_AUTH_SCOPES),
+        "state": state,
+        "nonce": nonce,
+        "code_challenge": code_challenge,
+        "code_challenge_method": "S256",
+        "access_type": "offline",
+        "include_granted_scopes": "true",
+        "prompt": "consent",
+    }
+    auth_url = f"{client_cfg['auth_uri']}?{urllib.parse.urlencode(params)}"
+
+    accept_header = request.headers.get("accept", "")
+    if "application/json" in accept_header:
+        return {"auth_url": auth_url}
+
+    return RedirectResponse(url=auth_url, status_code=status.HTTP_302_FOUND)
+
+
+@app.get("/api/auth/google/callback")
+def google_auth_callback(
+    request: Request,
+    code: Optional[str] = Query(None),
+    state: Optional[str] = Query(None),
+    error: Optional[str] = Query(None),
+):
+    """Handle OAuth callback, verify ID token, persist granted tokens, and create session."""
+    client_ip = request.client.host if request.client else "unknown"
+    if not auth_rate_limiter.is_allowed(client_ip):
+        return HTMLResponse(
+            content=render_auth_error_page("Too many requests. Please try again later."),
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        )
+
+    if error:
+        return HTMLResponse(
+            content=render_auth_error_page(f"Google authorization failed: {error}"),
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if not code or not state:
+        return HTMLResponse(
+            content=render_auth_error_page("Missing required authorization code or state parameter."),
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    conn = get_connection()
+    try:
+        auth_state = consume_auth_state(conn, state=state, flow_type="login")
+        if not auth_state:
+            return HTMLResponse(
+                content=render_auth_error_page("Invalid or expired OAuth state. Please restart sign-in."),
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            client_cfg = load_web_client_config()
+            token_resp = exchange_code_for_tokens(
+                code=code,
+                code_verifier=auth_state["code_verifier"],
+                redirect_uri=app_config.AUTH_REDIRECT_URI,
+                client_config=client_cfg,
+            )
+            claims = verify_google_id_token(
+                id_token_jwt=token_resp.get("id_token", ""),
+                client_id=client_cfg["client_id"],
+                expected_nonce=auth_state.get("nonce"),
+            )
+        except Exception as e:
+            logger.warning(f"OAuth code exchange or token verification failed: {e}")
+            return HTMLResponse(
+                content=render_auth_error_page("Authentication verification failed. Please try again."),
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        authenticated_email = claims.get("email", "").strip().lower()
+        owner_email = app_config.OWNER_EMAIL.strip().lower()
+
+        # Enforce single-owner allowlist: non-owner gets generic not-allowed page and nothing is saved
+        if not authenticated_email or (owner_email and authenticated_email != owner_email):
+            logger.warning(f"Unauthorized email attempted sign-in: {authenticated_email}")
+            return HTMLResponse(content=NOT_ALLOWED_HTML, status_code=status.HTTP_403_FORBIDDEN)
+
+        # Inspect which scopes were actually granted
+        raw_scopes_str = token_resp.get("scope", "")
+        granted_scopes = set(raw_scopes_str.split())
+        access_tok = token_resp.get("access_token")
+        refresh_tok = token_resp.get("refresh_token")
+
+        has_gmail = GMAIL_READONLY_SCOPE in granted_scopes
+        classroom_granted = [s for s in CLASSROOM_READONLY_SCOPES if s in granted_scopes]
+        has_classroom = len(classroom_granted) > 0
+
+        # Persist service tokens at existing paths in authorized user format
+        if has_gmail and access_tok:
+            save_service_token_file(
+                token_path_str=app_config.GMAIL_TOKEN_FILE,
+                access_token=access_tok,
+                refresh_token=refresh_tok,
+                scopes=[GMAIL_READONLY_SCOPE],
+                client_config=client_cfg,
+            )
+            sync_scheduler.reconnect_needed = False
+            sync_scheduler.current_status = "idle"
+
+        if has_classroom and access_tok:
+            save_service_token_file(
+                token_path_str=app_config.CLASSROOM_TOKEN_FILE,
+                access_token=access_tok,
+                refresh_token=refresh_tok,
+                scopes=classroom_granted,
+                client_config=client_cfg,
+            )
+            sync_scheduler.classroom_reconnect_needed = False
+            sync_scheduler.classroom_status = "idle"
+
+        # Trigger automatic non-blocking first sync
+        def _initial_sync_worker(do_gmail: bool, do_classroom: bool):
+            if do_gmail:
+                try:
+                    sync_scheduler.run_sync(is_manual=True)
+                except Exception as ex:
+                    logger.warning(f"Initial Gmail sync error: {ex}")
+            if do_classroom:
+                try:
+                    sync_scheduler.run_classroom_sync(is_manual=True)
+                except Exception as ex:
+                    logger.warning(f"Initial Classroom sync error: {ex}")
+
+        if has_gmail or has_classroom:
+            threading.Thread(
+                target=_initial_sync_worker,
+                args=(has_gmail, has_classroom),
+                daemon=True,
+            ).start()
+
+        # Create server-side session
+        session_id, signed_cookie_val, expires_at_iso = create_session(
+            conn,
+            email=authenticated_email,
+            display_name=claims.get("name"),
+            ttl_hours=app_config.SESSION_TTL_HOURS,
+        )
+
+        response = RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
+        max_age = app_config.SESSION_TTL_HOURS * 3600
+        response.set_cookie(
+            key="classmail_session",
+            value=signed_cookie_val,
+            max_age=max_age,
+            httponly=True,
+            samesite="lax",
+            path="/",
+            secure=False,
+        )
+        return response
+    finally:
+        conn.close()
+
+
+@app.get("/api/auth/me")
+def get_auth_me(request: Request):
+    """Return authentication status, owner identity, and whether auth is enabled."""
+    if not app_config.AUTH_ENABLED:
+        return {
+            "authenticated": True,
+            "auth_enabled": False,
+            "email": None,
+            "display_name": None,
+        }
+
+    conn = get_connection()
+    try:
+        sess = get_session_from_cookie(request, conn)
+        if not sess:
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={
+                    "authenticated": False,
+                    "auth_enabled": True,
+                    "email": None,
+                    "display_name": None,
+                },
+            )
+        return {
+            "authenticated": True,
+            "auth_enabled": True,
+            "email": sess["email"],
+            "display_name": sess.get("display_name"),
+        }
+    finally:
+        conn.close()
+
+
+@app.post("/api/auth/logout")
+def auth_logout(request: Request):
+    """End the user browser session. Does NOT delete stored data connection tokens."""
+    conn = get_connection()
+    try:
+        cookie_val = request.cookies.get("classmail_session")
+        if cookie_val:
+            secret = getattr(app_config, "SESSION_SECRET", "")
+            session_id = verify_signed_session_id(cookie_val, secret)
+            if session_id:
+                delete_session(conn, session_id)
+    finally:
+        conn.close()
+
+    response = JSONResponse(content={"ok": True})
+    response.delete_cookie(key="classmail_session", path="/")
+    return response
+
+
+@app.get("/api/connections")
+def get_connections():
+    """Return per-source connection state, granted scopes, and last sync timestamp."""
+    gmail_file = Path(app_config.GMAIL_TOKEN_FILE)
+    gmail_connected = gmail_file.is_file()
+    gmail_scopes: List[str] = []
+    if gmail_connected:
+        try:
+            data = json.loads(gmail_file.read_text(encoding="utf-8"))
+            gmail_scopes = data.get("scopes", [])
+        except Exception:
+            pass
+
+    classroom_file = Path(app_config.CLASSROOM_TOKEN_FILE)
+    classroom_connected = classroom_file.is_file()
+    classroom_scopes: List[str] = []
+    if classroom_connected:
+        try:
+            data = json.loads(classroom_file.read_text(encoding="utf-8"))
+            classroom_scopes = data.get("scopes", [])
+        except Exception:
+            pass
+
+    return {
+        "gmail": {
+            "connected": gmail_connected,
+            "scopes_granted": gmail_scopes,
+            "last_sync": sync_scheduler.last_run_at,
+            "needs_reconnect": (sync_scheduler.current_status == "reconnect_needed"),
+        },
+        "classroom": {
+            "connected": classroom_connected,
+            "scopes_granted": classroom_scopes,
+            "last_sync": sync_scheduler.classroom_last_run_at,
+            "needs_reconnect": (sync_scheduler.classroom_status == "reconnect_needed"),
+        },
+    }
+
+
+@app.post("/api/connections/disconnect")
+def disconnect_connection(payload: DisconnectRequest, request: Request):
+    """Disconnect an integration, revoke Google token at endpoint, and remove token file."""
+    if app_config.AUTH_ENABLED:
+        conn = get_connection()
+        try:
+            sess = get_session_from_cookie(request, conn)
+            owner = app_config.OWNER_EMAIL.strip().lower()
+            if not sess or sess.get("email", "").lower() != owner:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Forbidden: Only instance owner may disconnect integrations.",
+                )
+        finally:
+            conn.close()
+
+    source = payload.source.strip().lower()
+    if source not in ("gmail", "classroom"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid source. Must be 'gmail' or 'classroom'.",
+        )
+
+    revoked = False
+    if source == "gmail":
+        token_path = Path(app_config.GMAIL_TOKEN_FILE)
+        if token_path.is_file():
+            try:
+                data = json.loads(token_path.read_text(encoding="utf-8"))
+                tok = data.get("refresh_token") or data.get("token")
+                if tok:
+                    revoked = revoke_google_token(tok)
+            except Exception:
+                pass
+            token_path.unlink(missing_ok=True)
+        sync_scheduler.current_status = "idle"
+        sync_scheduler.reconnect_needed = False
+        return {"ok": True, "source": "gmail", "revoked": revoked}
+
+    elif source == "classroom":
+        token_path = Path(app_config.CLASSROOM_TOKEN_FILE)
+        if token_path.is_file():
+            try:
+                data = json.loads(token_path.read_text(encoding="utf-8"))
+                tok = data.get("refresh_token") or data.get("token")
+                if tok:
+                    revoked = revoke_google_token(tok)
+            except Exception:
+                pass
+            token_path.unlink(missing_ok=True)
+        sync_scheduler.classroom_status = "idle"
+        sync_scheduler.classroom_reconnect_needed = False
+        return {"ok": True, "source": "classroom", "revoked": revoked}

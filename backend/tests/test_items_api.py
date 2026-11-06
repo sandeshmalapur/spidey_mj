@@ -231,23 +231,23 @@ def test_demo_seed_and_delete(client_with_db):
     seed_res = client.post("/api/demo/seed")
     assert seed_res.status_code == 200
     seed_data = seed_res.json()
-    assert seed_data["seeded"] == 7
-    assert seed_data["total_demo"] == 7
+    assert seed_data["seeded"] == 9
+    assert seed_data["total_demo"] == 9
 
     # Seed again -> idempotent (0 newly seeded)
     seed_again = client.post("/api/demo/seed")
     assert seed_again.status_code == 200
     assert seed_again.json()["seeded"] == 0
-    assert seed_again.json()["total_demo"] == 7
+    assert seed_again.json()["total_demo"] == 9
 
-    # Verify all 7 demo items are in list
+    # Verify all 9 demo items are in list
     demo_list = client.get("/api/items?include_snoozed=true").json()
-    assert len(demo_list) == 8  # 7 demo + 1 manual
+    assert len(demo_list) == 10  # 9 demo + 1 manual
 
     # Delete demo items -> ONLY is_demo rows removed
     del_res = client.delete("/api/demo")
     assert del_res.status_code == 200
-    assert del_res.json()["deleted"] == 7
+    assert del_res.json()["deleted"] == 9
 
     # Verify manual item survived and demo items are gone
     remaining = client.get("/api/items?include_snoozed=true").json()

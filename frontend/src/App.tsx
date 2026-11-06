@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { api } from './api';
 import type {
+  AuthMeResponse,
+  ConnectionsResponse,
   HealthResponse,
   Item,
   ItemKind,
@@ -10,7 +12,9 @@ import type {
   NotificationLogEntry,
   NotificationStatus,
   Priority,
+  Reminder,
   SyncStatus,
+  SystemStatusResponse,
 } from './types';
 import './App.css';
 
@@ -37,6 +41,7 @@ function formatDateTimeWithTz(dateStr: string | null | undefined): string {
 function formatKind(kind: string): string {
   const map: Record<string, string> = {
     assignment: 'Assignment',
+    assessment: 'Assessment',
     announcement: 'Announcement',
     recruiter: 'Recruiter',
     interview: 'Interview',
@@ -47,6 +52,19 @@ function formatKind(kind: string): string {
     other: 'Other',
   };
   return map[kind] || kind.replace(/_/g, ' ');
+}
+
+function getAssessmentStartBy(item: Item): string | null {
+  if (item.kind !== 'assessment') return null;
+  if (!item.duration_minutes) {
+    return 'Add duration to get a start-time reminder';
+  }
+  if (!item.deadline_at) return null;
+  const d = new Date(item.deadline_at);
+  if (isNaN(d.getTime())) return null;
+  const startBy = new Date(d.getTime() - item.duration_minutes * 60000);
+  const timeStr = startBy.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  return `Start by ${timeStr}`;
 }
 
 export default function App() {
@@ -73,9 +91,11 @@ export default function App() {
   const [editTitle, setEditTitle] = useState('');
   const [editDeadlineText, setEditDeadlineText] = useState('');
   const [editDeadlineAt, setEditDeadlineAt] = useState('');
+  const [editDurationMinutes, setEditDurationMinutes] = useState<string>('');
   const [editPriorityOverride, setEditPriorityOverride] = useState<string>('none');
   const [editKind, setEditKind] = useState<ItemKind>('other');
   const [editItemType, setEditItemType] = useState<ItemType>('task');
+  const [itemReminders, setItemReminders] = useState<Reminder[]>([]);
 
   // Manual paste state
   const [pasteSourceTitle, setPasteSourceTitle] = useState('');
@@ -106,6 +126,61 @@ export default function App() {
     outcome: string;
     error?: string | null;
   } | null>(null);
+
+  // Authentication & Connections state
+  const [authMe, setAuthMe] = useState<AuthMeResponse | null>(null);
+  const [connections, setConnections] = useState<ConnectionsResponse | null>(null);
+  const [checkingAuth, setCheckingAuth] = useState<boolean>(true);
+
+  const loadConnections = async () => {
+    try {
+      const conns = await api.getConnections();
+      setConnections(conns);
+    } catch {
+      // Ignore background load error
+    }
+  };
+
+  const handleDisconnect = async (source: 'gmail' | 'classroom') => {
+    const label = source === 'gmail' ? 'Gmail' : 'Google Classroom';
+    if (!window.confirm(`Are you sure you want to disconnect ${label}? Stored credentials will be removed.`)) {
+      return;
+    }
+    try {
+      await api.disconnect(source);
+      setActionSuccess(`Disconnected ${label}.`);
+      setTimeout(() => setActionSuccess(null), 4000);
+      await Promise.all([loadConnections(), loadSyncStatus(), loadItems()]);
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : `Failed to disconnect ${label}`);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await api.logout();
+      setAuthMe({ authenticated: false, auth_enabled: true, email: null, display_name: null });
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'Logout failed');
+    }
+  };
+
+  // System status state
+  const [showSystemStatusModal, setShowSystemStatusModal] = useState<boolean>(false);
+  const [systemStatus, setSystemStatus] = useState<SystemStatusResponse | null>(null);
+  const [loadingSystemStatus, setLoadingSystemStatus] = useState<boolean>(false);
+
+  const loadSystemStatus = async () => {
+    setLoadingSystemStatus(true);
+    try {
+      const st = await api.getSystemStatus();
+      setSystemStatus(st);
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to fetch system status');
+    } finally {
+      setLoadingSystemStatus(false);
+    }
+  };
 
   // Load notification logs and status
   const loadNotificationInfo = async () => {
@@ -161,6 +236,16 @@ export default function App() {
       setHealthError(err instanceof Error ? err.message : 'Backend unavailable');
     }
   };
+
+  useEffect(() => {
+    if (selectedItem?.id) {
+      api.getItemReminders(selectedItem.id)
+        .then(setItemReminders)
+        .catch(() => setItemReminders([]));
+    } else {
+      setItemReminders([]);
+    }
+  }, [selectedItem?.id]);
 
   // Load sync status
   const loadSyncStatus = async () => {
@@ -250,18 +335,36 @@ export default function App() {
     }
   };
 
+  const checkAuthAndLoad = async () => {
+    try {
+      const me = await api.getAuthMe();
+      setAuthMe(me);
+      if (!me.auth_enabled || me.authenticated) {
+        checkHealth();
+        loadItems();
+        loadSyncStatus();
+        loadNotificationInfo();
+        loadConnections();
+      }
+    } catch {
+      setAuthMe({ authenticated: false, auth_enabled: true, email: null, display_name: null });
+    } finally {
+      setCheckingAuth(false);
+    }
+  };
+
   useEffect(() => {
-    checkHealth();
-    loadItems();
-    loadSyncStatus();
-    loadNotificationInfo();
+    checkAuthAndLoad();
 
     const interval = setInterval(() => {
-      loadSyncStatus();
-      loadNotificationInfo();
+      if (!authMe?.auth_enabled || authMe?.authenticated) {
+        loadSyncStatus();
+        loadNotificationInfo();
+        loadConnections();
+      }
     }, 10000);
     return () => clearInterval(interval);
-  }, []);
+  }, [authMe?.authenticated, authMe?.auth_enabled]);
 
   const hasDemoItems = useMemo(() => items.some((i) => i.is_demo), [items]);
 
@@ -393,6 +496,19 @@ export default function App() {
     }
   };
 
+  const handleResetDemo = async () => {
+    try {
+      setErrorMessage(null);
+      const res = await api.resetDemo();
+      setActionSuccess(`Reset demo items (${res.seeded} seeded, total demo: ${res.total_demo})`);
+      setTimeout(() => setActionSuccess(null), 3000);
+      await loadItems();
+      if (selectedItem?.is_demo) setSelectedItem(null);
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to reset demo data');
+    }
+  };
+
   // Re-analyze handlers
   const handleReanalyzeAll = async () => {
     setReanalyzingAll(true);
@@ -435,6 +551,7 @@ export default function App() {
     setEditingItem(item);
     setEditTitle(item.title);
     setEditDeadlineText(item.deadline_text || '');
+    setEditDurationMinutes(item.duration_minutes ? String(item.duration_minutes) : '');
     setEditKind(item.kind);
     setEditItemType(item.item_type);
     setEditPriorityOverride(item.priority_override || 'none');
@@ -465,10 +582,19 @@ export default function App() {
       }
     }
 
+    let durationVal: number | null = null;
+    if (editDurationMinutes.trim()) {
+      const parsedDur = parseInt(editDurationMinutes.trim(), 10);
+      if (!isNaN(parsedDur) && parsedDur > 0) {
+        durationVal = parsedDur;
+      }
+    }
+
     const payload: ItemUpdateParams = {
       title: editTitle.trim(),
       deadline_text: editDeadlineText.trim() || null,
       deadline_at: deadlineAtIso,
+      duration_minutes: durationVal,
       priority_override: editPriorityOverride === 'none' ? null : (editPriorityOverride as Priority),
       kind: editKind,
       item_type: editItemType,
@@ -539,6 +665,46 @@ export default function App() {
     return 'No deadline';
   };
 
+  if (checkingAuth) {
+    return (
+      <div className="login-container">
+        <div style={{ textAlign: 'center', color: '#64748b' }}>
+          <p>Loading ClassMail J...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (authMe?.auth_enabled && !authMe?.authenticated) {
+    return (
+      <div className="login-container">
+        <div className="login-card">
+          <div className="login-logo">
+            <span className="logo-icon">📬</span>
+            <h1>ClassMail J</h1>
+          </div>
+          <p className="login-subtitle">Local AI Email &amp; Classroom Assistant</p>
+          <div className="login-divider" />
+          <p className="login-desc">
+            Sign in with your Google Account to authorize ClassMail J to access your Gmail and Google Classroom read-only.
+          </p>
+          <a href="http://127.0.0.1:8000/api/auth/google/start" className="google-signin-btn">
+            <svg className="google-icon" viewBox="0 0 24 24" width="20" height="20">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+            </svg>
+            <span>Sign in with Google</span>
+          </a>
+          <p className="login-note">
+            This is a single-owner instance. Only the designated instance owner account is permitted.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="app-container">
       {/* Header */}
@@ -606,19 +772,47 @@ export default function App() {
             </>
           )}
 
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => {
+              setShowSystemStatusModal(true);
+              loadSystemStatus();
+            }}
+          >
+            System Status
+          </button>
           <button className="btn btn-secondary btn-sm" onClick={checkHealth}>
             Check Health
           </button>
+
+          {authMe?.auth_enabled && authMe?.authenticated && (
+            <div className="auth-user-info">
+              <span className="user-email-tag" title="Instance Owner">👤 {authMe.email}</span>
+              <button onClick={handleLogout} className="btn btn-secondary btn-sm">
+                Sign Out
+              </button>
+            </div>
+          )}
         </div>
       </header>
 
       {/* Demo Banner */}
       {hasDemoItems && (
         <div className="demo-banner">
-          <span className="demo-banner-icon">ℹ️</span>
-          <span>
-            <strong>Demo data shown.</strong> Not from your real accounts.
-          </span>
+          <div className="demo-banner-content">
+            <span className="demo-banner-icon">⚠️</span>
+            <span>
+              <strong>Demo data active:</strong> Simulated academic items are loaded alongside real data.
+            </span>
+          </div>
+          <div className="demo-banner-actions">
+            <button className="btn btn-sm btn-outline" onClick={handleResetDemo}>
+              Reset Demo
+            </button>
+            <button className="btn btn-sm btn-outline btn-danger" onClick={handleDeleteDemo}>
+              Clear Demo
+            </button>
+          </div>
         </div>
       )}
 
@@ -632,6 +826,89 @@ export default function App() {
           </button>
         </div>
       )}
+
+      {/* Integrations Connection Strip */}
+      <div className="connections-strip">
+        <div className="connection-pill-group">
+          <span className="connection-group-title">Integrations:</span>
+
+          {/* Gmail badge */}
+          <div
+            className={`connection-badge ${
+              connections?.gmail?.needs_reconnect || syncStatus?.status === 'reconnect_needed'
+                ? 'badge-warning'
+                : connections?.gmail?.connected
+                ? 'badge-success'
+                : 'badge-muted'
+            }`}
+          >
+            {connections?.gmail?.needs_reconnect || syncStatus?.status === 'reconnect_needed' ? (
+              <>
+                <span>⚠️ Reconnect needed (Gmail)</span>
+                <a href="http://127.0.0.1:8000/api/auth/google/start" className="btn-link">
+                  Reconnect
+                </a>
+              </>
+            ) : connections?.gmail?.connected ? (
+              <>
+                <span>✓ Gmail connected</span>
+                <button
+                  onClick={() => handleDisconnect('gmail')}
+                  className="btn-link text-danger"
+                  title="Disconnect Gmail integration and revoke token"
+                >
+                  Disconnect
+                </button>
+              </>
+            ) : (
+              <>
+                <span>○ Gmail not granted</span>
+                <a href="http://127.0.0.1:8000/api/auth/google/start" className="btn-link">
+                  Connect
+                </a>
+              </>
+            )}
+          </div>
+
+          {/* Classroom badge */}
+          <div
+            className={`connection-badge ${
+              connections?.classroom?.needs_reconnect || syncStatus?.classroom_status === 'reconnect_needed'
+                ? 'badge-warning'
+                : connections?.classroom?.connected
+                ? 'badge-success'
+                : 'badge-muted'
+            }`}
+          >
+            {connections?.classroom?.needs_reconnect || syncStatus?.classroom_status === 'reconnect_needed' ? (
+              <>
+                <span>⚠️ Reconnect needed (Classroom)</span>
+                <a href="http://127.0.0.1:8000/api/auth/google/start" className="btn-link">
+                  Reconnect
+                </a>
+              </>
+            ) : connections?.classroom?.connected ? (
+              <>
+                <span>✓ Classroom connected</span>
+                <button
+                  onClick={() => handleDisconnect('classroom')}
+                  className="btn-link text-danger"
+                  title="Disconnect Google Classroom integration and revoke token"
+                >
+                  Disconnect
+                </button>
+              </>
+            ) : (
+              <>
+                <span>○ Classroom not granted</span>
+                <a href="http://127.0.0.1:8000/api/auth/google/start" className="btn-link">
+                  Connect
+                </a>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* Top Action Toolbar */}
       <section className="toolbar">
@@ -675,6 +952,9 @@ export default function App() {
           </button>
         </div>
         <div className="toolbar-right">
+          <button className="btn btn-outline" onClick={handleResetDemo} title="Clear and reload fresh relative-date demo items">
+            Reset Demo Data
+          </button>
           <button className="btn btn-outline" onClick={handleSeedDemo}>
             Load Demo Data
           </button>
@@ -695,9 +975,14 @@ export default function App() {
             <strong>Gmail Reconnect Needed:</strong> Authorization token is missing, expired, or revoked.
           </div>
           <div className="reconnect-body">
-            <span>Automatic background sync for Gmail is paused. To re-authorize, execute this command in your terminal:</span>
-            <br />
-            <code className="reconnect-code">{syncStatus.reconnect_command || 'python -m app.integrations.google_auth gmail'}</code>
+            <span>Automatic background sync for Gmail is paused. Click below to re-authorize via browser, or use the CLI command:</span>
+            <div style={{ marginTop: '0.6rem', display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+              <a href="http://127.0.0.1:8000/api/auth/google/start" className="btn btn-primary btn-sm">
+                Reconnect in Browser
+              </a>
+              <span style={{ fontSize: '0.85rem', color: '#92400e' }}>or run terminal command:</span>
+              <code className="reconnect-code">{syncStatus.reconnect_command || 'python -m app.integrations.google_auth gmail'}</code>
+            </div>
           </div>
         </div>
       )}
@@ -710,9 +995,14 @@ export default function App() {
             <strong>Google Classroom Reconnect Needed:</strong> Authorization token is missing, expired, or revoked.
           </div>
           <div className="reconnect-body">
-            <span>To authorize Google Classroom, execute this command in your terminal:</span>
-            <br />
-            <code className="reconnect-code">{syncStatus.classroom_reconnect_command || 'python -m app.integrations.google_auth classroom'}</code>
+            <span>Click below to authorize Google Classroom via browser, or use the CLI command:</span>
+            <div style={{ marginTop: '0.6rem', display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+              <a href="http://127.0.0.1:8000/api/auth/google/start" className="btn btn-primary btn-sm">
+                Reconnect in Browser
+              </a>
+              <span style={{ fontSize: '0.85rem', color: '#92400e' }}>or run terminal command:</span>
+              <code className="reconnect-code">{syncStatus.classroom_reconnect_command || 'python -m app.integrations.google_auth classroom'}</code>
+            </div>
           </div>
         </div>
       )}
@@ -908,12 +1198,20 @@ export default function App() {
                           🏫 Classroom
                         </span>
                       )}
+                      {item.source_type === 'manual' && (
+                        <span className="badge badge-manual" title="Entered manually">
+                          📝 Manual
+                        </span>
+                      )}
                       {item.source_status === 'TURNED_IN' && (
                         <span className="badge badge-turned-in" title="Turned in per Google Classroom">
                           ✓ Turned in per Classroom
                         </span>
                       )}
                       {item.is_demo && <span className="badge badge-demo">DEMO</span>}
+                      {item.duration_minutes && (
+                        <span className="badge badge-duration">Duration {item.duration_minutes} min</span>
+                      )}
                       {item.acknowledged_at && (
                         <span className="badge badge-ack">✓ Acknowledged</span>
                       )}
@@ -946,6 +1244,11 @@ export default function App() {
                       <span className="deadline-label">📅 {formatDeadline(item)}</span>
                       {item.deadline_status === 'ambiguous' && (
                         <span className="badge badge-warning">Needs confirmation</span>
+                      )}
+                      {item.kind === 'assessment' && (
+                        <span className={`badge ${item.duration_minutes ? 'badge-start-by' : 'badge-no-duration'}`}>
+                          ⏱️ {getAssessmentStartBy(item)}
+                        </span>
                       )}
                       {item.next_reminder_at && item.state !== 'completed' && item.state !== 'cancelled' && (
                         <span className="card-next-reminder" title={`Next reminder scheduled for ${item.next_reminder_at}`}>
@@ -1004,6 +1307,21 @@ export default function App() {
                     </span>
                     <span className="badge badge-kind">{formatKind(selectedItem.kind)}</span>
                     <span className="badge badge-state">{selectedItem.state.replace('_', ' ')}</span>
+                    {selectedItem.source_type === 'gmail' && (
+                      <span className="badge badge-gmail" title="Imported from Gmail">
+                        ✉️ Gmail
+                      </span>
+                    )}
+                    {selectedItem.source_type === 'classroom' && (
+                      <span className="badge badge-classroom" title="Imported from Google Classroom">
+                        🏫 Classroom
+                      </span>
+                    )}
+                    {selectedItem.source_type === 'manual' && (
+                      <span className="badge badge-manual" title="Entered manually">
+                        📝 Manual
+                      </span>
+                    )}
                     {selectedItem.is_demo && <span className="badge badge-demo">DEMO</span>}
                     {selectedItem.acknowledged_at && (
                       <span className="badge badge-ack">✓ Acknowledged</span>
@@ -1170,6 +1488,17 @@ export default function App() {
                       <span className="badge badge-warning"> Needs confirmation</span>
                     )}
                   </p>
+                {selectedItem.duration_minutes && (
+                  <p>
+                    <strong>Duration:</strong> {selectedItem.duration_minutes} min
+                  </p>
+                )}
+                {selectedItem.kind === 'assessment' && (
+                  <p>
+                    <strong>Assessment Start:</strong>{' '}
+                    <span className="badge badge-start-by">⏱️ {getAssessmentStartBy(selectedItem)}</span>
+                  </p>
+                )}
                 {selectedItem.deadline_at && (
                   <p>
                     <strong>Deadline Time:</strong>{' '}
@@ -1206,6 +1535,24 @@ export default function App() {
                     <span className="text-muted">No reminder scheduled</span>
                   )}
                 </p>
+              </div>
+
+              <div className="detail-section detail-reminders-section">
+                <h4>Next reminders</h4>
+                {itemReminders.filter((r) => r.status === 'pending').length > 0 ? (
+                  <ul className="reminders-list">
+                    {itemReminders
+                      .filter((r) => r.status === 'pending')
+                      .map((r) => (
+                        <li key={r.id}>
+                          <strong>{r.kind.replace(/_/g, ' ')}:</strong> {formatDateTimeWithTz(r.scheduled_for)}
+                          {r.reason && <span className="text-muted"> — {r.reason}</span>}
+                        </li>
+                      ))}
+                  </ul>
+                ) : (
+                  <p className="text-muted">No pending reminders</p>
+                )}
               </div>
 
               {selectedItem.summary && (
@@ -1324,6 +1671,7 @@ export default function App() {
                     onChange={(e) => setEditKind(e.target.value as ItemKind)}
                   >
                     <option value="assignment">Assignment</option>
+                    <option value="assessment">Assessment</option>
                     <option value="announcement">Announcement</option>
                     <option value="recruiter">Recruiter</option>
                     <option value="interview">Interview</option>
@@ -1346,6 +1694,22 @@ export default function App() {
                     <option value="information">Information</option>
                   </select>
                 </div>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="edit-duration">
+                  Duration (minutes)
+                  <span className="field-note">(For assessments; 5 to 600 min)</span>
+                </label>
+                <input
+                  id="edit-duration"
+                  type="number"
+                  min="5"
+                  max="600"
+                  placeholder="e.g. 45"
+                  value={editDurationMinutes}
+                  onChange={(e) => setEditDurationMinutes(e.target.value)}
+                />
               </div>
 
               <div className="form-group">
@@ -1576,6 +1940,8 @@ export default function App() {
                       <thead>
                         <tr>
                           <th>Time</th>
+                          <th>Scheduled For</th>
+                          <th>Delay</th>
                           <th>Channel</th>
                           <th>Title</th>
                           <th>Outcome</th>
@@ -1586,6 +1952,18 @@ export default function App() {
                         {notificationLogs.map((log) => (
                           <tr key={log.id}>
                             <td className="log-time">{formatDateTimeWithTz(log.at)}</td>
+                            <td className="log-scheduled">{log.scheduled_for ? formatDateTimeWithTz(log.scheduled_for) : '—'}</td>
+                            <td className="log-delay">
+                              {log.delay_seconds != null ? (
+                                log.delay_seconds > 0 ? (
+                                  <span className="delay-late">+{log.delay_seconds}s</span>
+                                ) : (
+                                  <span className="delay-ontime">on-time</span>
+                                )
+                              ) : (
+                                '—'
+                              )}
+                            </td>
                             <td>
                               <span className={`badge badge-${log.channel}`}>
                                 {log.channel.toUpperCase()}
@@ -1611,6 +1989,104 @@ export default function App() {
                   type="button"
                   className="btn btn-secondary"
                   onClick={() => setShowNotificationsModal(false)}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* System Status Modal */}
+      {showSystemStatusModal && (
+        <div className="modal-backdrop" onClick={() => setShowSystemStatusModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px' }}>
+            <div className="modal-header">
+              <h2>⚙️ System Diagnostics & Status</h2>
+              <button
+                type="button"
+                className="btn-icon"
+                onClick={() => setShowSystemStatusModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="modal-content">
+              <p style={{ color: '#64748b', fontSize: '0.875rem', marginTop: 0 }}>
+                Diagnostic verification of local services and integrations. No secrets or credentials are ever exposed.
+              </p>
+
+              {loadingSystemStatus ? (
+                <div style={{ textAlign: 'center', padding: '2rem' }}>Loading system diagnostics...</div>
+              ) : systemStatus ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', margin: '1rem 0' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid #e2e8f0' }}>
+                    <strong>Database Health:</strong>
+                    <span className={systemStatus.database_ok ? 'badge badge-success' : 'badge badge-danger'}>
+                      {systemStatus.database_ok ? '✓ SQLite Connected' : '❌ Database Error'}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid #e2e8f0' }}>
+                    <strong>Gmail OAuth Token:</strong>
+                    <span className={systemStatus.gmail_token_present ? 'badge badge-gmail' : 'badge badge-warning'}>
+                      {systemStatus.gmail_token_present ? '✓ Authorized' : '⚠️ Reconnect Needed'}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid #e2e8f0' }}>
+                    <strong>Classroom OAuth Token:</strong>
+                    <span className={systemStatus.classroom_token_present ? 'badge badge-classroom' : 'badge badge-warning'}>
+                      {systemStatus.classroom_token_present ? '✓ Authorized' : '⚠️ Reconnect Needed'}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid #e2e8f0' }}>
+                    <strong>Push Notifications (ntfy):</strong>
+                    <span className={systemStatus.ntfy_configured ? 'badge badge-ntfy' : 'badge badge-neutral'}>
+                      {systemStatus.ntfy_configured ? '✓ Configured' : 'Local Only'}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid #e2e8f0' }}>
+                    <strong>Scheduler (APScheduler):</strong>
+                    <span className={systemStatus.scheduler_running ? 'badge badge-success' : 'badge badge-neutral'}>
+                      {systemStatus.scheduler_running ? '✓ Running' : 'Stopped'}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid #e2e8f0' }}>
+                    <strong>Auto-sync:</strong>
+                    <span className={systemStatus.auto_sync_enabled ? 'badge badge-success' : 'badge badge-neutral'}>
+                      {systemStatus.auto_sync_enabled ? 'Active' : 'Paused'}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid #e2e8f0', fontSize: '0.875rem' }}>
+                    <strong>Last Gmail Sync:</strong>
+                    <span>{formatDateTimeWithTz(systemStatus.last_sync_gmail) || 'Not synced yet'}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid #e2e8f0', fontSize: '0.875rem' }}>
+                    <strong>Last Classroom Sync:</strong>
+                    <span>{formatDateTimeWithTz(systemStatus.last_sync_classroom) || 'Not synced yet'}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', fontSize: '0.875rem', color: '#64748b' }}>
+                    <strong>ClassMail J Version:</strong>
+                    <span>v{systemStatus.version}</span>
+                  </div>
+                </div>
+              ) : (
+                <div>Unable to retrieve system diagnostics.</div>
+              )}
+
+              <div className="modal-actions" style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={loadSystemStatus}
+                  disabled={loadingSystemStatus}
+                >
+                  Refresh
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowSystemStatusModal(false)}
                 >
                   Close
                 </button>

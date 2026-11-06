@@ -26,6 +26,33 @@ GOOGLE_CLIENT_FILE = os.getenv(
     "GOOGLE_CLIENT_FILE",
     str(Path(__file__).resolve().parent.parent / "secrets" / "google_client.json"),
 )
+GOOGLE_WEB_CLIENT_FILE = os.getenv(
+    "GOOGLE_WEB_CLIENT_FILE",
+    str(Path(__file__).resolve().parent.parent / "secrets" / "google_web_client.json"),
+)
+AUTH_REDIRECT_URI = os.getenv(
+    "AUTH_REDIRECT_URI",
+    "http://127.0.0.1:8000/api/auth/google/callback",
+)
+AUTH_ENABLED = os.getenv("AUTH_ENABLED", "false").lower() in ("true", "1", "yes")
+SESSION_SECRET = os.getenv("SESSION_SECRET", "")
+OWNER_EMAIL = os.getenv("OWNER_EMAIL", "").strip().lower()
+SESSION_TTL_HOURS = int(os.getenv("SESSION_TTL_HOURS", "12"))
+
+
+def validate_auth_config() -> None:
+    """Validate authentication configuration when AUTH_ENABLED is True."""
+    if AUTH_ENABLED:
+        if not SESSION_SECRET or len(SESSION_SECRET) < 32:
+            raise RuntimeError(
+                "SESSION_SECRET must be set and at least 32 characters long when AUTH_ENABLED=true"
+            )
+        if not OWNER_EMAIL:
+            raise RuntimeError(
+                "OWNER_EMAIL must be set when AUTH_ENABLED=true"
+            )
+
+
 GMAIL_TOKEN_FILE = os.getenv(
     "GMAIL_TOKEN_FILE",
     str(Path(__file__).resolve().parent.parent / "secrets" / "token_gmail.json"),
@@ -56,6 +83,12 @@ NOTIFY_DEMO_ITEMS = os.getenv("NOTIFY_DEMO_ITEMS", "false").lower() in ("true", 
 NTFY_SERVER = os.getenv("NTFY_SERVER", "https://ntfy.sh")
 NTFY_TOPIC = os.getenv("NTFY_TOPIC", "")
 NTFY_INCLUDE_TITLE = os.getenv("NTFY_INCLUDE_TITLE", "false").lower() in ("true", "1", "yes")
+
+# Reminder Timing Refinements (Assessment & Submission)
+ASSESSMENT_HEADSUP_MINUTES = int(os.getenv("ASSESSMENT_HEADSUP_MINUTES", "30"))
+CATCHUP_GRACE_MINUTES = int(os.getenv("CATCHUP_GRACE_MINUTES", "15"))
+REMINDER_OFFSETS_ASSIGNMENT_MINUTES = os.getenv("REMINDER_OFFSETS_ASSIGNMENT_MINUTES", "1440,180,45")
+REMINDER_OFFSETS_EVENT_MINUTES = os.getenv("REMINDER_OFFSETS_EVENT_MINUTES", "1440,60,15")
 
 _raw_origins = os.getenv("FRONTEND_ORIGIN", "http://localhost:5173,http://127.0.0.1:5173")
 ALLOWED_ORIGINS = [

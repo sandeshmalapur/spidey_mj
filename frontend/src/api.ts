@@ -1,16 +1,20 @@
 import type {
+  AuthMeResponse,
+  ClassroomSyncResult,
+  ConnectionsResponse,
   HealthResponse,
   Item,
   ItemCreateParams,
-  ItemUpdateParams,
   ItemState,
   ItemType,
-  Priority,
-  SyncResult,
-  ClassroomSyncResult,
-  SyncStatus,
+  ItemUpdateParams,
   NotificationLogEntry,
   NotificationStatus,
+  Priority,
+  Reminder,
+  SyncResult,
+  SyncStatus,
+  SystemStatusResponse,
 } from './types';
 
 const API_BASE_URL =
@@ -23,6 +27,7 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
   try {
     response = await fetch(url, {
       ...options,
+      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
         ...(options?.headers || {}),
@@ -150,6 +155,9 @@ export const api = {
   reanalyzeItem: (id: number) =>
     request<Item>(`/api/items/${id}/reanalyze`, { method: 'POST' }),
 
+  getItemReminders: (id: number) =>
+    request<Reminder[]>(`/api/items/${id}/reminders`),
+
   reanalyzeAll: () =>
     request<{
       status: string;
@@ -172,5 +180,28 @@ export const api = {
     request<NotificationStatus>('/api/notifications/settings', {
       method: 'POST',
       body: JSON.stringify({ notifications_enabled }),
+    }),
+
+  resetDemo: () =>
+    request<{ status: string; deleted: number; seeded: number; total_demo: number }>('/api/demo/reset', {
+      method: 'POST',
+    }),
+
+  getSystemStatus: () =>
+    request<SystemStatusResponse>('/api/system/status'),
+
+  getAuthMe: () =>
+    request<AuthMeResponse>('/api/auth/me'),
+
+  logout: () =>
+    request<{ ok: boolean }>('/api/auth/logout', { method: 'POST' }),
+
+  getConnections: () =>
+    request<ConnectionsResponse>('/api/connections'),
+
+  disconnect: (source: 'gmail' | 'classroom') =>
+    request<{ ok: boolean; source: string; revoked: boolean }>('/api/connections/disconnect', {
+      method: 'POST',
+      body: JSON.stringify({ source }),
     }),
 };

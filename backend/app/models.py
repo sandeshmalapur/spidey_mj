@@ -12,6 +12,7 @@ class ItemType(str, Enum):
 
 class ItemKind(str, Enum):
     ASSIGNMENT = "assignment"
+    ASSESSMENT = "assessment"
     ANNOUNCEMENT = "announcement"
     RECRUITER = "recruiter"
     INTERVIEW = "interview"
@@ -62,6 +63,7 @@ class ItemCreate(BaseModel):
     deadline_text: Optional[str] = None
     deadline_at: Optional[str] = None
     deadline_status: DeadlineStatus = DeadlineStatus.NONE
+    duration_minutes: Optional[int] = None
     links: List[str] = Field(default_factory=list)
     source_type: SourceType = SourceType.MANUAL
     source_id: Optional[str] = None
@@ -70,6 +72,7 @@ class ItemCreate(BaseModel):
     sender: Optional[str] = None
     received_at: Optional[str] = None
     evidence: Optional[str] = None
+    source_status: Optional[str] = None
     is_demo: bool = False
 
 
@@ -82,6 +85,7 @@ class ItemUpdate(BaseModel):
     priority_override: Optional[Priority] = None
     kind: Optional[ItemKind] = None
     item_type: Optional[ItemType] = None
+    duration_minutes: Optional[int] = None
 
 
 class SnoozeRequest(BaseModel):
@@ -117,6 +121,7 @@ class ItemResponse(BaseModel):
     deadline_text: Optional[str] = None
     deadline_at: Optional[str] = None
     deadline_status: DeadlineStatus
+    duration_minutes: Optional[int] = None
     links: List[str] = Field(default_factory=list)
     source_type: SourceType
     source_id: Optional[str] = None
@@ -180,6 +185,7 @@ class ItemResponse(BaseModel):
             deadline_text=row.get("deadline_text"),
             deadline_at=row.get("deadline_at"),
             deadline_status=row.get("deadline_status", "none"),
+            duration_minutes=row.get("duration_minutes"),
             links=links_list,
             source_type=row["source_type"],
             source_id=row.get("source_id"),
@@ -277,6 +283,8 @@ class NotificationLogEntry(BaseModel):
     body: str
     outcome: str
     error: Optional[str] = None
+    scheduled_for: Optional[str] = None
+    delay_seconds: Optional[int] = None
 
 
 class NotificationStatusResponse(BaseModel):

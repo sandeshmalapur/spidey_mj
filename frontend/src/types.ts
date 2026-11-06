@@ -2,6 +2,7 @@ export type ItemType = 'information' | 'task';
 
 export type ItemKind =
   | 'assignment'
+  | 'assessment'
   | 'announcement'
   | 'recruiter'
   | 'interview'
@@ -41,6 +42,7 @@ export interface Item {
   deadline_text: string | null;
   deadline_at: string | null;
   deadline_status: DeadlineStatus;
+  duration_minutes?: number | null;
   links: string[];
   source_type: SourceType;
   source_id: string | null;
@@ -128,6 +130,7 @@ export interface ItemCreateParams {
   deadline_text?: string | null;
   deadline_at?: string | null;
   deadline_status?: DeadlineStatus;
+  duration_minutes?: number | null;
   links?: string[];
   source_type?: SourceType;
   source_id?: string | null;
@@ -145,6 +148,7 @@ export interface ItemUpdateParams {
   deadline_at?: string | null;
   deadline_status?: DeadlineStatus;
   priority_override?: Priority | null;
+  duration_minutes?: number | null;
   kind?: ItemKind;
   item_type?: ItemType;
 }
@@ -158,6 +162,20 @@ export interface NotificationLogEntry {
   body: string;
   outcome: string;
   error?: string | null;
+  scheduled_for?: string | null;
+  delay_seconds?: number | null;
+}
+
+export interface Reminder {
+  id: number;
+  item_id: number;
+  kind: string;
+  scheduled_for: string;
+  status: string;
+  dedupe_key?: string | null;
+  reason?: string | null;
+  created_at: string;
+  sent_at?: string | null;
 }
 
 export interface NotificationStatus {
@@ -170,4 +188,37 @@ export interface NotificationStatus {
   max_per_hour: number;
   recent_count: number;
 }
+
+export interface SystemStatusResponse {
+  database_ok: boolean;
+  gmail_token_present: boolean;
+  classroom_token_present: boolean;
+  ntfy_configured: boolean;
+  scheduler_running: boolean;
+  auto_sync_enabled: boolean;
+  last_sync_gmail?: string | null;
+  last_sync_classroom?: string | null;
+  version: string;
+}
+
+export interface AuthMeResponse {
+  authenticated: boolean;
+  auth_enabled: boolean;
+  email: string | null;
+  display_name: string | null;
+}
+
+export interface SourceConnection {
+  connected: boolean;
+  scopes_granted: string[];
+  last_sync: string | null;
+  needs_reconnect: boolean;
+}
+
+export interface ConnectionsResponse {
+  gmail: SourceConnection;
+  classroom: SourceConnection;
+}
+
+
 

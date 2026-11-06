@@ -3,20 +3,76 @@ from typing import Any, Dict, List
 
 
 def get_demo_items(now: datetime) -> List[Dict[str, Any]]:
-    """Generate demo items with dates computed relative to seeding time."""
+    """Generate demo items with dates computed relative to seeding time.
+
+    Includes:
+    - Same-day assessment with a 45-minute duration.
+    - Same-day assignment due in 5 hours.
+    - Urgent, Important, and Normal items across multiple categories.
+    - Ambiguous deadline interview request.
+    - Informational notices (newsletter, maintenance alert with urgency cue).
+    """
+    same_day_assessment_dl = now + timedelta(hours=2)
+    same_day_assignment_dl = now + timedelta(hours=5)
     urgent_dl = now + timedelta(hours=20)
     important_dl = now + timedelta(days=5)
     normal_dl = now + timedelta(days=30)
 
+    same_day_assessment_dl_str = same_day_assessment_dl.strftime("%Y-%m-%dT%H:%M:%SZ")
+    same_day_assignment_dl_str = same_day_assignment_dl.strftime("%Y-%m-%dT%H:%M:%SZ")
     urgent_dl_str = urgent_dl.strftime("%Y-%m-%dT%H:%M:%SZ")
     important_dl_str = important_dl.strftime("%Y-%m-%dT%H:%M:%SZ")
     normal_dl_str = normal_dl.strftime("%Y-%m-%dT%H:%M:%SZ")
 
+    same_day_assessment_dl_text = same_day_assessment_dl.strftime("Today at %I:%M %p UTC")
+    same_day_assignment_dl_text = same_day_assignment_dl.strftime("Today at %I:%M %p UTC")
     urgent_dl_text = urgent_dl.strftime("Due %A, %b %d, %Y at %I:%M %p UTC")
     important_dl_text = important_dl.strftime("Submit by %B %d, %Y at 5:00 PM UTC")
     normal_dl_text = normal_dl.strftime("%A, %B %d, %Y at 9:00 AM UTC")
 
     return [
+        {
+            "source_id": "demo-assessment-math201-midterm",
+            "source_type": "demo",
+            "item_type": "task",
+            "kind": "assessment",
+            "title": "MATH 201: Linear Algebra Midterm Exam",
+            "source_title": "MATH 201: Linear Algebra Coursework",
+            "sender": "prof.euler@springfield.edu",
+            "received_at": (now - timedelta(hours=3)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "summary": "45-minute timed linear algebra midterm exam covering vector spaces, eigenvalues, and matrix transformations.",
+            "priority_override": None,
+            "extraction_confidence": 0.98,
+            "state": "not_started",
+            "deadline_text": same_day_assessment_dl_text,
+            "deadline_at": same_day_assessment_dl_str,
+            "deadline_status": "confirmed",
+            "duration_minutes": 45,
+            "links": ["https://testing.springfield.edu/math201/midterm"],
+            "evidence": f"MATH 201 Midterm Exam is scheduled for {same_day_assessment_dl_text}. Duration: 45 min. Please start on time to finish before the deadline window closes.",
+            "is_demo": True,
+        },
+        {
+            "source_id": "demo-assignment-phys102-lab2",
+            "source_type": "demo",
+            "item_type": "task",
+            "kind": "assignment",
+            "title": "PHYS 102: Lab Report 2 - Pendulum Mechanics",
+            "source_title": "PHYS 102: Introductory Physics II",
+            "sender": "lab-instructors@springfield.edu",
+            "received_at": (now - timedelta(hours=4)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "summary": "Submit experimental data analysis, error calculations, and discussion for the harmonic pendulum lab.",
+            "priority_override": None,
+            "extraction_confidence": 0.97,
+            "state": "not_started",
+            "deadline_text": same_day_assignment_dl_text,
+            "deadline_at": same_day_assignment_dl_str,
+            "deadline_status": "confirmed",
+            "duration_minutes": None,
+            "links": ["https://physics.springfield.edu/portal/labs/report2"],
+            "evidence": f"PHYS 102 Lab Report 2 is due {same_day_assignment_dl_text}. Submit your completed report PDF through the portal before the 5:00 PM cutoff.",
+            "is_demo": True,
+        },
         {
             "source_id": "demo-assignment-cs101-ps4",
             "source_type": "demo",
@@ -33,6 +89,7 @@ def get_demo_items(now: datetime) -> List[Dict[str, Any]]:
             "deadline_text": urgent_dl_text,
             "deadline_at": urgent_dl_str,
             "deadline_status": "confirmed",
+            "duration_minutes": None,
             "links": ["https://classroom.google.com/c/cs101/a/ps4"],
             "evidence": f"Problem Set 4 has been posted to Classroom portal. {urgent_dl_text}. Please push code to your personal GitHub repository and submit through Gradescope.",
             "is_demo": True,
@@ -53,6 +110,7 @@ def get_demo_items(now: datetime) -> List[Dict[str, Any]]:
             "deadline_text": important_dl_text,
             "deadline_at": important_dl_str,
             "deadline_status": "confirmed",
+            "duration_minutes": None,
             "links": ["https://finaid.springfield.edu/portal/upload/residence"],
             "evidence": f"Action Needed: Your financial aid package requires proof of permanent residency. {important_dl_text} to ensure timely semester aid release.",
             "is_demo": True,
@@ -73,6 +131,7 @@ def get_demo_items(now: datetime) -> List[Dict[str, Any]]:
             "deadline_text": normal_dl_text,
             "deadline_at": normal_dl_str,
             "deadline_status": "confirmed",
+            "duration_minutes": None,
             "links": ["https://hackspringfield.org/schedule"],
             "evidence": f"Welcome to HackSpringfield 2026! Check-in starts at {normal_dl_text} in the Science Center Atrium. Opening remarks kick off right after.",
             "is_demo": True,
@@ -93,6 +152,7 @@ def get_demo_items(now: datetime) -> List[Dict[str, Any]]:
             "deadline_text": "Sometime early next week, ideally Tuesday or Wednesday afternoon",
             "deadline_at": None,
             "deadline_status": "ambiguous",
+            "duration_minutes": None,
             "links": ["https://initech.example/careers/portal/interview-prep"],
             "evidence": "Hi Alex! Your resume stood out to our engineering team and we'd love to schedule a 45-minute virtual technical interview. Are you available sometime early next week, ideally Tuesday or Wednesday afternoon? Please let me know a few times that work best for you.",
             "is_demo": True,
@@ -113,6 +173,7 @@ def get_demo_items(now: datetime) -> List[Dict[str, Any]]:
             "deadline_text": None,
             "deadline_at": None,
             "deadline_status": "none",
+            "duration_minutes": None,
             "links": ["https://reslife.springfield.edu/maintenance-updates"],
             "evidence": "URGENT: Facilities advisory. Due to municipal valve maintenance on University Avenue, residents of South Hall may experience reduced water pressure for 3 hours today. Facilities crews are monitoring the pressure. No action is required on your part.",
             "is_demo": True,
@@ -133,6 +194,7 @@ def get_demo_items(now: datetime) -> List[Dict[str, Any]]:
             "deadline_text": None,
             "deadline_at": None,
             "deadline_status": "none",
+            "duration_minutes": None,
             "links": ["https://engineering.springfield.edu/newsletters/issue-42"],
             "evidence": "Read this week's issue of the Engineering Digest! Topics include the opening of the new robotics laboratory, upcoming guest speaker Dr. Elena Vance from Black Mesa Tech, and IEEE student chapter elections next month.",
             "is_demo": True,
@@ -153,6 +215,7 @@ def get_demo_items(now: datetime) -> List[Dict[str, Any]]:
             "deadline_text": None,
             "deadline_at": None,
             "deadline_status": "none",
+            "duration_minutes": None,
             "links": ["https://it.springfield.edu/status/lib-wifi"],
             "evidence": "Notice: Network engineers will upgrade core switches in the Main Library this Saturday between 11:00 PM and 3:00 AM. Study spaces remain open, but eduroam Wi-Fi will be intermittently unavailable.",
             "is_demo": True,

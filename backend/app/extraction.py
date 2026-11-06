@@ -90,6 +90,7 @@ class ExtractionResult(BaseModel):
     deadline_text: Optional[str] = None
     deadline_at: Optional[str] = None  # UTC ISO
     deadline_status: DeadlineStatus
+    duration_minutes: Optional[int] = None
     extraction_confidence: float = Field(default=1.0, ge=0.0, le=1.0)
     reasons: List[str] = Field(default_factory=list)
 
@@ -97,6 +98,8 @@ class ExtractionResult(BaseModel):
     def validate_consistency(self) -> "ExtractionResult":
         # Kind and item_type must be consistent
         if self.required_actions and self.item_type != ItemType.TASK:
+            self.item_type = ItemType.TASK
+        if self.kind == ItemKind.ASSESSMENT and self.item_type != ItemType.TASK:
             self.item_type = ItemType.TASK
         if self.kind in (ItemKind.INTERVIEW, ItemKind.MEETING, ItemKind.EVENT) and "Confirm attendance" in self.required_actions:
             self.item_type = ItemType.TASK
@@ -226,6 +229,11 @@ class RulesProvider(ExtractionProvider):
         )
         reasons.extend(dl_reasons)
 
+        # 5b. Extract duration (never a deadline)
+        duration_minutes = self._extract_duration(norm_text, norm_subject)
+        if duration_minutes is not None:
+            reasons.append(f"Extracted duration: {duration_minutes} minutes.")
+
         # 6. Classify kind & item_type
         item_type, kind, class_actions, class_reasons = self._classify_content(
             norm_subject, norm_text, deadline_status, links
@@ -262,6 +270,7 @@ class RulesProvider(ExtractionProvider):
             deadline_text=deadline_text,
             deadline_at=deadline_at,
             deadline_status=deadline_status,
+            duration_minutes=duration_minutes,
             extraction_confidence=confidence,
             reasons=reasons,
         )
@@ -274,6 +283,63 @@ class RulesProvider(ExtractionProvider):
             if trimmed and trimmed not in cleaned_links:
                 cleaned_links.append(trimmed)
         return cleaned_links
+
+    def _extract_duration(self, text: str, subject: str = "") -> Optional[int]:
+        """Extract duration in minutes from text/subject.
+
+        Supported formats:
+        - '45 minutes', '45-minute', '45 mins', '45 min'
+        - '1 hour', '1.5 hours', '2 hours'
+        - '1h 30m', '1 hour 30 mins'
+        - 'duration: 45 min', 'time limit 30 min'
+        Sanity range: 5 to 600 minutes inclusive.
+        Never treated as a deadline.
+        """
+        combined = f"{subject}\n{text}"
+        t = re.sub(r"[\u2010\u2013\u2014]", "-", combined)
+
+        # 1. Compound hours + minutes: e.g. 1h 30m, 1 hour 30 mins, 1 hr and 20 mins
+        m_compound = re.search(
+            r"\b(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|h)\s*(?:and\s*)?(\d+)\s*(?:minutes?|mins?|min|m)\b",
+            t,
+            re.I,
+        )
+        if m_compound:
+            mins = int(float(m_compound.group(1)) * 60 + int(m_compound.group(2)))
+            if 5 <= mins <= 600:
+                return mins
+
+        # 2. Prefix-based: duration: 45 min / time limit 30 min / time limit: 1.5 hours
+        m_pref = re.search(
+            r"(?:duration|time\s*limit)[:\s]+(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|h|minutes?|mins?|min|m)\b",
+            t,
+            re.I,
+        )
+        if m_pref:
+            raw_val = float(m_pref.group(1))
+            matched_segment = t[m_pref.start():m_pref.end()].lower()
+            if any(h in matched_segment for h in ["hour", "hr", "h"]) and not any(m in matched_segment for m in ["min", "m"]):
+                mins = int(round(raw_val * 60))
+            else:
+                mins = int(round(raw_val))
+            if 5 <= mins <= 600:
+                return mins
+
+        # 3. Standalone hours: 1 hour, 1.5 hours, 2 hrs
+        m_hours = re.search(r"\b(\d+(?:\.\d+)?)\s*(?:hours?|hrs?)\b", t, re.I)
+        if m_hours:
+            mins = int(round(float(m_hours.group(1)) * 60))
+            if 5 <= mins <= 600:
+                return mins
+
+        # 4. Standalone minutes: 45 minutes, 45-minute, 45 mins, 45 min
+        m_mins = re.search(r"\b(\d+)\s*(?:-|\s)*(?:minutes?|mins?|min)\b", t, re.I)
+        if m_mins:
+            mins = int(m_mins.group(1))
+            if 5 <= mins <= 600:
+                return mins
+
+        return None
 
     def _derive_title(self, subject: str, text: str) -> str:
         if subject:
@@ -623,9 +689,19 @@ class RulesProvider(ExtractionProvider):
         info_cues = ["no action required", "no action needed", "no response needed", "for your information", "fyi"]
         has_info_override = any(cue in combined for cue in info_cues)
 
+        # Assessment check (cues: test, quiz, exam, assessment, timed; item_type task)
+        is_assessment = bool(
+            re.search(r"\b(test|quiz|exam|assessment|timed)\b", combined, re.I)
+        )
+        if is_assessment and not has_info_override:
+            reasons.append("Identified assessment cues (test/quiz/exam/assessment/timed).")
+            return ItemType.TASK, ItemKind.ASSESSMENT, ["Complete assessment"], reasons
+
         # 4. Standard kind classification
         if any(w in combined for w in ["assignment", "homework", "problem set", "pset", "gradescope", "lab report"]):
             kind = ItemKind.ASSIGNMENT
+        elif is_assessment:
+            kind = ItemKind.ASSESSMENT
         elif is_interview:
             kind = ItemKind.INTERVIEW
         elif any(w in combined for w in ["recruiter", "talent acquisition", "careers", "internship application"]):

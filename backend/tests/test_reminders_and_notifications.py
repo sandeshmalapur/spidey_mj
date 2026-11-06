@@ -169,11 +169,13 @@ def test_schedule_creation(test_db):
     plan_or_replan_item_reminders(item_dl, conn, now)
 
     rem_dl = conn.execute("SELECT * FROM reminders WHERE item_id = ? ORDER BY scheduled_for ASC", (id_dl,)).fetchall()
-    assert len(rem_dl) == 2
+    assert len(rem_dl) == 3
     assert rem_dl[0]["kind"] == "deadline_24h"
     assert rem_dl[0]["scheduled_for"] == format_utc_iso(dl_48h - timedelta(hours=24))
     assert rem_dl[1]["kind"] == "deadline_3h"
     assert rem_dl[1]["scheduled_for"] == format_utc_iso(dl_48h - timedelta(hours=3))
+    assert rem_dl[2]["kind"] == "deadline_45m"
+    assert rem_dl[2]["scheduled_for"] == format_utc_iso(dl_48h - timedelta(minutes=45))
 
     # 3. Important item -> important_first scheduled immediately
     id_imp = _insert_test_item(conn, title="Important Task", priority="important")
@@ -233,9 +235,10 @@ def test_replan_on_deadline_change(test_db):
         "SELECT * FROM reminders WHERE item_id = ? AND status = 'pending' ORDER BY scheduled_for ASC",
         (item_id,),
     ).fetchall()
-    assert len(new_pending) == 2
+    assert len(new_pending) == 3
     assert new_pending[0]["scheduled_for"] == format_utc_iso(dl_2 - timedelta(hours=24))
     assert new_pending[1]["scheduled_for"] == format_utc_iso(dl_2 - timedelta(hours=3))
+    assert new_pending[2]["scheduled_for"] == format_utc_iso(dl_2 - timedelta(minutes=45))
 
 
 def test_no_send_after_completion_or_acknowledge(test_db):

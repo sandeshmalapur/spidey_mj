@@ -3,12 +3,14 @@
 Implements:
 1. Pure/deterministic reminder planning with an injectable clock.
 2. Escalation bounds (URGENT_MAX_REPEATS, URGENT_REPEAT_MINUTES).
-3. Confirmed deadline T-24h and T-3h reminders.
-4. Ambiguous confirmation requests.
-5. Replanning upon deadline, state, priority, snooze, or acknowledgement changes.
-6. Dispatch guards (re-read live item, completion, snooze reschedule, quiet-hours deferral
-   and morning collapse, frequency-cap collapse, demo item isolation).
-7. Ntfy publisher with minimal generic plain-text (no evidence text or sender names;
+3. Configurable deadline offsets (REMINDER_OFFSETS_ASSIGNMENT_MINUTES, REMINDER_OFFSETS_EVENT_MINUTES).
+4. Assessment latest_start and heads-up reminders with duration calculation.
+5. First-seen-inside-window immediate single reminder (no backlog).
+6. Time-critical dispatch guards (latest_start and final submission nudge ignore quiet hours,
+   ignore snooze, bypass frequency cap collapse, use ntfy priority urgent).
+7. Catch-up grace handling (marked late within grace, skipped beyond grace) and delay logging.
+8. Suppression on completed/cancelled states and source_status=TURNED_IN.
+9. Ntfy publisher with minimal generic plain-text (no evidence text or sender names;
    never prints, logs, or returns NTFY_TOPIC).
 """
 
@@ -50,6 +52,52 @@ def format_utc_iso(dt: datetime) -> str:
     else:
         dt = dt.astimezone(timezone.utc)
     return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def parse_offsets_list(val: str, default: List[int]) -> List[int]:
+    """Parse a comma-separated list of integer offset minutes, sorted descending (max 3)."""
+    try:
+        offsets = [int(x.strip()) for x in val.split(",") if x.strip()]
+        if not offsets:
+            return default
+        return sorted(offsets, reverse=True)[:3]
+    except Exception:
+        return default
+
+
+def get_assignment_offsets() -> List[int]:
+    raw = getattr(app.config, "REMINDER_OFFSETS_ASSIGNMENT_MINUTES", "1440,180,45")
+    return parse_offsets_list(raw, [1440, 180, 45])
+
+
+def get_event_offsets() -> List[int]:
+    raw = getattr(app.config, "REMINDER_OFFSETS_EVENT_MINUTES", "1440,60,15")
+    return parse_offsets_list(raw, [1440, 60, 15])
+
+
+def offset_to_kind(minutes: int) -> str:
+    """Map offset minutes to human-readable kind strings."""
+    if minutes == 1440:
+        return "deadline_24h"
+    elif minutes == 180:
+        return "deadline_3h"
+    elif minutes == 60:
+        return "deadline_1h"
+    return f"deadline_{minutes}m"
+
+
+def is_final_submission_nudge(kind: str, reason: Optional[str] = None) -> bool:
+    """Check if reminder represents the final submission nudge."""
+    if reason == "final_submission_nudge":
+        return True
+    return kind in ("deadline_45m", "deadline_15m")
+
+
+def is_reminder_time_critical(kind: str, reason: Optional[str] = None) -> bool:
+    """Check if a reminder is time-critical (latest_start or final submission nudge)."""
+    if kind in ("latest_start", "latest_start_passed"):
+        return True
+    return is_final_submission_nudge(kind, reason)
 
 
 def is_in_quiet_hours(
@@ -194,6 +242,84 @@ def set_notifications_enabled(enabled: bool, conn: sqlite3.Connection) -> None:
     set_setting("notifications_enabled", "true" if enabled else "false", conn=conn)
 
 
+def _schedule_offsets(
+    item_dict: Dict[str, Any],
+    conn: sqlite3.Connection,
+    now_utc: datetime,
+    deadline_dt: datetime,
+    offsets: List[int],
+) -> None:
+    """Schedule configurable deadline offsets for an item."""
+    item_id = item_dict["id"]
+    now_iso = format_utc_iso(now_utc)
+    final_offset = offsets[-1] if offsets else 45
+
+    if now_utc >= deadline_dt:
+        return
+
+    expected_times = {format_utc_iso(deadline_dt - timedelta(minutes=m)) for m in offsets}
+
+    # Cancel pending deadline reminders that no longer match the current deadline
+    placeholders = ",".join("?" for _ in expected_times)
+    conn.execute(
+        f"""
+        UPDATE reminders
+        SET status = 'cancelled', reason = 'deadline_changed'
+        WHERE item_id = ? AND status = 'pending'
+          AND (kind LIKE 'deadline%' OR kind IN ('latest_start', 'assessment_headsup', 'latest_start_passed'))
+          AND scheduled_for NOT IN ({placeholders});
+        """,
+        (item_id, *expected_times),
+    )
+
+    # Check how many deadline reminders have already been sent for this item
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT COUNT(*) FROM reminders
+        WHERE item_id = ? AND (kind LIKE 'deadline%' OR reason = 'final_submission_nudge') AND status = 'sent';
+        """,
+        (item_id,),
+    )
+    sent_deadline_count = cur.fetchone()[0]
+
+    future_offsets = [m for m in offsets if (deadline_dt - timedelta(minutes=m)) > now_utc]
+    past_offsets = [m for m in offsets if (deadline_dt - timedelta(minutes=m)) <= now_utc]
+
+    # First seen inside window: send ONLY the single nearest remaining reminder immediately, never a backlog
+    if sent_deadline_count == 0 and past_offsets:
+        nearest_m = past_offsets[-1]  # Closest to now/deadline
+        kind = offset_to_kind(nearest_m)
+        is_final = (nearest_m == final_offset)
+        reason = "final_submission_nudge" if is_final else f"{nearest_m} minutes before deadline"
+        dedupe_key = f"{item_id}:{kind}:first_seen_immediate:{format_utc_iso(deadline_dt)}"
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO reminders
+            (item_id, kind, scheduled_for, status, dedupe_key, reason, created_at)
+            VALUES (?, ?, ?, 'pending', ?, ?, ?);
+            """,
+            (item_id, kind, now_iso, dedupe_key, reason, now_iso),
+        )
+
+    # Schedule future offsets at exact scheduled times
+    for m in future_offsets:
+        sched_dt = deadline_dt - timedelta(minutes=m)
+        sched_iso = format_utc_iso(sched_dt)
+        kind = offset_to_kind(m)
+        is_final = (m == final_offset)
+        reason = "final_submission_nudge" if is_final else f"{m} minutes before deadline"
+        dedupe_key = f"{item_id}:{kind}:{sched_iso}"
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO reminders
+            (item_id, kind, scheduled_for, status, dedupe_key, reason, created_at)
+            VALUES (?, ?, ?, 'pending', ?, ?, ?);
+            """,
+            (item_id, kind, sched_iso, dedupe_key, reason, now_iso),
+        )
+
+
 def plan_or_replan_item_reminders(
     item_dict: Dict[str, Any],
     conn: sqlite3.Connection,
@@ -201,15 +327,13 @@ def plan_or_replan_item_reminders(
 ) -> None:
     """Plan or replan deterministic reminders for a single item.
 
-    Cancels obsolete pending reminders and schedules new ones based on:
-    - Item state (completed/cancelled items get all pending cancelled).
-    - Past event kinds (interviews/meetings/events in the past get no reminders).
-    - Acknowledged or in-progress states (stop urgent escalation).
-    - Confirmed deadlines (T-24h and T-3h, skipping past times).
-    - Ambiguous deadlines (one confirmation request).
-    - Urgent escalation (bounded to URGENT_MAX_REPEATS, at least URGENT_REPEAT_MINUTES apart).
-    - Important items (notified once at creation if not already notified at higher level).
-    - Normal items (no push notifications; handled in daily digest).
+    Handles:
+    - Suppression on completed/cancelled states or source_status='TURNED_IN'.
+    - Assessment latest_start and heads-up with duration calculation.
+    - Missing duration fallback to assignment offsets.
+    - Configurable submission offsets (REMINDER_OFFSETS_ASSIGNMENT_MINUTES, REMINDER_OFFSETS_EVENT_MINUTES).
+    - First-seen-inside-window single immediate reminder.
+    - Acknowledge stops urgent escalation but NEVER cancels latest_start or final nudge.
     """
     item_id = item_dict["id"]
     now_iso = format_utc_iso(now_utc)
@@ -228,7 +352,21 @@ def plan_or_replan_item_reminders(
         )
         return
 
-    # 2. Event kinds whose start has passed get no reminders
+    # 2. Turned in suppression (e.g. from Google Classroom)
+    source_status = item_dict.get("source_status")
+    if source_status and str(source_status).upper() == "TURNED_IN":
+        conn.execute(
+            """
+            UPDATE reminders
+            SET status = 'cancelled', reason = 'turned_in'
+            WHERE item_id = ? AND status = 'pending'
+              AND (kind LIKE 'deadline%' OR kind IN ('latest_start', 'assessment_headsup', 'latest_start_passed'));
+            """,
+            (item_id,),
+        )
+        return
+
+    # 3. Event kinds whose start has passed get no reminders
     item_kind = item_dict.get("kind", "other")
     is_event = item_kind in (ItemKind.INTERVIEW.value, ItemKind.MEETING.value, ItemKind.EVENT.value, "interview", "meeting", "event")
     deadline_at_str = item_dict.get("deadline_at")
@@ -245,7 +383,7 @@ def plan_or_replan_item_reminders(
         )
         return
 
-    # 3. Stop urgent escalation if acknowledged or started (in_progress)
+    # 4. Stop urgent escalation if acknowledged or started (in_progress)
     acknowledged = item_dict.get("acknowledged_at") is not None
     is_in_progress = state in (ItemState.IN_PROGRESS.value, "in_progress")
     if acknowledged or is_in_progress:
@@ -253,66 +391,94 @@ def plan_or_replan_item_reminders(
             """
             UPDATE reminders
             SET status = 'cancelled', reason = 'escalation_stopped_by_user'
-            WHERE item_id = ? AND status = 'pending' AND kind LIKE 'urgent%';
+            WHERE item_id = ? AND status = 'pending' AND kind LIKE 'urgent_escalation%';
             """,
             (item_id,),
         )
 
-    # 4. Confirmed deadline scheduling (T-24h and T-3h)
+    # 5. Confirmed deadline scheduling
     deadline_status = item_dict.get("deadline_status", "none")
     if deadline_status in (DeadlineStatus.CONFIRMED.value, "confirmed") and deadline_dt:
-        t_24h = deadline_dt - timedelta(hours=24)
-        t_3h = deadline_dt - timedelta(hours=3)
-        t_24h_iso = format_utc_iso(t_24h)
-        t_3h_iso = format_utc_iso(t_3h)
+        if item_kind in (ItemKind.ASSESSMENT.value, "assessment"):
+            duration = item_dict.get("duration_minutes")
+            if duration and duration > 0:
+                latest_start_dt = deadline_dt - timedelta(minutes=duration)
+                latest_start_iso = format_utc_iso(latest_start_dt)
 
-        # Cancel any pending deadline reminders that no longer match the current deadline
-        conn.execute(
-            """
-            UPDATE reminders
-            SET status = 'cancelled', reason = 'deadline_changed'
-            WHERE item_id = ? AND status = 'pending'
-              AND kind IN ('deadline_24h', 'deadline_3h')
-              AND scheduled_for NOT IN (?, ?);
-            """,
-            (item_id, t_24h_iso, t_3h_iso),
-        )
+                # Cancel previous pending deadline reminders if time changed
+                conn.execute(
+                    """
+                    UPDATE reminders
+                    SET status = 'cancelled', reason = 'deadline_or_duration_changed'
+                    WHERE item_id = ? AND status = 'pending'
+                      AND (kind IN ('latest_start', 'assessment_headsup', 'latest_start_passed') OR kind LIKE 'deadline%')
+                      AND scheduled_for != ?;
+                    """,
+                    (item_id, latest_start_iso),
+                )
 
-        # T-24h reminder (skip if in past)
-        if t_24h > now_utc:
-            dedupe_key = f"{item_id}:deadline_24h:{t_24h_iso}"
-            conn.execute(
-                """
-                INSERT OR IGNORE INTO reminders
-                (item_id, kind, scheduled_for, status, dedupe_key, reason, created_at)
-                VALUES (?, 'deadline_24h', ?, 'pending', ?, '24 hours before deadline', ?);
-                """,
-                (item_id, t_24h_iso, dedupe_key, now_iso),
-            )
+                if latest_start_dt >= now_utc:
+                    dedupe_key = f"{item_id}:latest_start:{latest_start_iso}"
+                    conn.execute(
+                        """
+                        INSERT OR IGNORE INTO reminders
+                        (item_id, kind, scheduled_for, status, dedupe_key, reason, created_at)
+                        VALUES (?, 'latest_start', ?, 'pending', ?, 'start assessment before deadline', ?);
+                        """,
+                        (item_id, latest_start_iso, dedupe_key, now_iso),
+                    )
 
-        # T-3h reminder (skip if in past)
-        if t_3h > now_utc:
-            dedupe_key = f"{item_id}:deadline_3h:{t_3h_iso}"
-            conn.execute(
-                """
-                INSERT OR IGNORE INTO reminders
-                (item_id, kind, scheduled_for, status, dedupe_key, reason, created_at)
-                VALUES (?, 'deadline_3h', ?, 'pending', ?, '3 hours before deadline', ?);
-                """,
-                (item_id, t_3h_iso, dedupe_key, now_iso),
-            )
+                    headsup_min = getattr(app.config, "ASSESSMENT_HEADSUP_MINUTES", 30)
+                    if headsup_min > 0:
+                        headsup_dt = latest_start_dt - timedelta(minutes=headsup_min)
+                        if headsup_dt > now_utc:
+                            headsup_iso = format_utc_iso(headsup_dt)
+                            h_dedupe = f"{item_id}:assessment_headsup:{headsup_iso}"
+                            conn.execute(
+                                """
+                                INSERT OR IGNORE INTO reminders
+                                (item_id, kind, scheduled_for, status, dedupe_key, reason, created_at)
+                                VALUES (?, 'assessment_headsup', ?, 'pending', ?, 'assessment heads-up', ?);
+                                """,
+                                (item_id, headsup_iso, h_dedupe, now_iso),
+                            )
+                elif now_utc < deadline_dt:
+                    # latest_start has passed, but deadline has not
+                    remaining_min = max(1, int((deadline_dt - now_utc).total_seconds() / 60))
+                    dl_iso = format_utc_iso(deadline_dt)
+                    dedupe_key = f"{item_id}:latest_start_passed:{dl_iso}"
+                    conn.execute(
+                        """
+                        INSERT OR IGNORE INTO reminders
+                        (item_id, kind, scheduled_for, status, dedupe_key, reason, created_at)
+                        VALUES (?, 'latest_start_passed', ?, 'pending', ?, ?, ?);
+                        """,
+                        (item_id, now_iso, dedupe_key, f"{remaining_min} minutes remain", now_iso),
+                    )
+                else:
+                    # Deadline has passed -> send nothing
+                    pass
+            else:
+                # Assessment without duration: fall back to assignment offsets
+                _schedule_offsets(item_dict, conn, now_utc, deadline_dt, get_assignment_offsets())
+        else:
+            if is_event:
+                offsets = get_event_offsets()
+            else:
+                offsets = get_assignment_offsets()
+            _schedule_offsets(item_dict, conn, now_utc, deadline_dt, offsets)
     else:
-        # If deadline is no longer confirmed, cancel any pending deadline reminders
         conn.execute(
             """
             UPDATE reminders
             SET status = 'cancelled', reason = 'deadline_not_confirmed'
-            WHERE item_id = ? AND status = 'pending' AND kind IN ('deadline_24h', 'deadline_3h');
+            WHERE item_id = ? AND status = 'pending'
+              AND (kind LIKE 'deadline%' OR kind IN ('latest_start', 'assessment_headsup', 'latest_start_passed'));
             """,
             (item_id,),
         )
 
-    # 5. Ambiguous deadline confirmation
+    # 6. Ambiguous deadline confirmation
     if deadline_status in (DeadlineStatus.AMBIGUOUS.value, "ambiguous"):
         cur = conn.cursor()
         cur.execute(
@@ -330,11 +496,10 @@ def plan_or_replan_item_reminders(
                 (item_id, now_iso, dedupe_key, now_iso),
             )
 
-    # 6. Priority-driven notifications
+    # 7. Priority-driven notifications
     eff_priority = item_dict.get("priority_override") or item_dict.get("priority") or "normal"
 
     if eff_priority in (Priority.URGENT.value, "urgent"):
-        # Escalation only runs if not acknowledged and not started
         if not acknowledged and not is_in_progress:
             cur = conn.cursor()
             cur.execute(
@@ -354,7 +519,6 @@ def plan_or_replan_item_reminders(
             max_repeats = getattr(app.config, "URGENT_MAX_REPEATS", 3)
             repeat_minutes = getattr(app.config, "URGENT_REPEAT_MINUTES", 30)
 
-            # First notification
             if sent_count == 0 and not pending_urgent:
                 dedupe_key = f"{item_id}:urgent_first:{now_iso}"
                 conn.execute(
@@ -365,7 +529,6 @@ def plan_or_replan_item_reminders(
                     """,
                     (item_id, now_iso, dedupe_key, now_iso),
                 )
-            # Escalations
             elif 0 < sent_count < (1 + max_repeats) and not pending_urgent:
                 last_sent = sent_urgent[-1]
                 last_sent_dt = parse_utc_iso(last_sent.get("sent_at") or last_sent.get("scheduled_for")) or now_utc
@@ -383,7 +546,6 @@ def plan_or_replan_item_reminders(
                 )
 
     elif eff_priority in (Priority.IMPORTANT.value, "important"):
-        # Cancel any pending urgent reminders
         conn.execute(
             """
             UPDATE reminders
@@ -392,7 +554,6 @@ def plan_or_replan_item_reminders(
             """,
             (item_id,),
         )
-        # Only notify if not already notified at a higher level
         cur = conn.cursor()
         cur.execute(
             "SELECT COUNT(*) FROM reminders WHERE item_id = ? AND kind LIKE 'urgent%' AND status = 'sent';",
@@ -416,7 +577,6 @@ def plan_or_replan_item_reminders(
                 )
 
     elif eff_priority in (Priority.NORMAL.value, "normal"):
-        # Cancel any pending urgent or important push reminders
         conn.execute(
             """
             UPDATE reminders
@@ -436,8 +596,8 @@ def _build_minimal_message(
 
     Guarantees:
     - NEVER includes email bodies, evidence text, or sender names.
-    - Titles included only if NTFY_INCLUDE_TITLE=true.
     - Minimal generic summary text by default.
+    - Specific required text for latest_start and final submission nudge.
 
     Returns:
         (title, body, ntfy_priority)
@@ -448,11 +608,24 @@ def _build_minimal_message(
     else:
         title = "ClassMail J Alert"
 
-    if kind.startswith("urgent"):
+    if kind == "latest_start":
+        body = "ClassMail J: start your assessment now to finish before the deadline"
+        priority = "urgent"
+    elif kind == "latest_start_passed":
+        remain_text = reason if reason else "some time remains"
+        body = f"ClassMail J: latest start has passed, {remain_text}"
+        priority = "urgent"
+    elif kind == "assessment_headsup":
+        body = "ClassMail J: assessment start time approaching"
+        priority = "high"
+    elif is_final_submission_nudge(kind, reason):
+        body = "ClassMail J: 1 submission due soon, upload now"
+        priority = "urgent"
+    elif kind.startswith("urgent"):
         body = "ClassMail J: 1 urgent item needs attention"
         priority = "urgent"
     elif kind.startswith("deadline"):
-        note = f" ({reason})" if reason else ""
+        note = f" ({reason})" if reason and "submission" not in reason else ""
         body = f"ClassMail J: 1 deadline approaching{note}"
         priority = "high"
     elif kind.startswith("important"):
@@ -473,20 +646,7 @@ def dispatch_due_reminders(
     now_utc: datetime,
     ntfy_client: Optional[BaseNtfyClient] = None,
 ) -> int:
-    """Evaluate dispatch guards and send due reminders.
-
-    Guards enforced:
-    1. Re-read live item from DB.
-    2. Skip if completed or cancelled.
-    3. Skip or reschedule if snoozed (to snoozed_until).
-    4. Skip if deadline changed since scheduled.
-    5. Skip if event start has passed.
-    6. Skip if already acknowledged (urgent escalation).
-    7. Quiet hours deferral (urgent bypasses only if URGENT_BYPASS_QUIET=true).
-    8. Quiet hours morning collapse (multiple deferred reminders collapsed into 1 summary).
-    9. Frequency cap (MAX_NOTIFICATIONS_PER_HOUR, excess collapsed into 1 summary).
-    10. Demo item isolation (is_demo items logged locally, never sent to ntfy unless NOTIFY_DEMO_ITEMS=true).
-    """
+    """Evaluate dispatch guards and send due reminders."""
     if not get_notifications_enabled(conn):
         return 0
 
@@ -513,11 +673,13 @@ def dispatch_due_reminders(
     # Quiet hours evaluation
     is_quiet, quiet_end_utc = is_in_quiet_hours(now_utc)
     urgent_bypass = getattr(app.config, "URGENT_BYPASS_QUIET", False)
+    catchup_grace_minutes = getattr(app.config, "CATCHUP_GRACE_MINUTES", 15)
 
     for r in pending_rows:
         r_id = r["reminder_id"]
         item_id = r["item_id"]
         kind = r["kind"]
+        reason = r.get("reason")
         scheduled_for_iso = r["scheduled_for"]
 
         cur.execute("SELECT * FROM items WHERE id = ?;", (item_id,))
@@ -534,18 +696,39 @@ def dispatch_due_reminders(
             conn.execute("UPDATE reminders SET status = 'skipped', reason = 'item_completed_or_cancelled' WHERE id = ?;", (r_id,))
             continue
 
+        # Guard 1b: TURNED_IN suppression
+        if item.get("source_status") and str(item.get("source_status")).upper() == "TURNED_IN":
+            if kind.startswith("deadline") or kind in ("latest_start", "assessment_headsup", "latest_start_passed"):
+                conn.execute("UPDATE reminders SET status = 'skipped', reason = 'turned_in' WHERE id = ?;", (r_id,))
+                continue
+
         # Guard 2: Acknowledged for urgent escalations
         if item.get("acknowledged_at") and kind.startswith("urgent_escalation"):
             conn.execute("UPDATE reminders SET status = 'skipped', reason = 'item_acknowledged' WHERE id = ?;", (r_id,))
             continue
 
-        # Guard 3: Snooze deferral
+        # Check time-critical status
+        is_time_critical = is_reminder_time_critical(kind, reason)
+
+        # Catch-up check: compare clock to scheduled_for
+        sched_dt = parse_utc_iso(scheduled_for_iso)
+        delay_seconds = max(0, int((now_utc - sched_dt).total_seconds())) if sched_dt else 0
+        delay_minutes = delay_seconds // 60
+
+        if delay_minutes > catchup_grace_minutes:
+            conn.execute(
+                "UPDATE reminders SET status = 'skipped', reason = 'catchup_grace_exceeded' WHERE id = ?;",
+                (r_id,),
+            )
+            continue
+
+        # Guard 3: Snooze deferral (ignored by time-critical reminders)
         snoozed_until_str = item.get("snoozed_until")
-        if snoozed_until_str:
+        if snoozed_until_str and not is_time_critical:
             snooze_dt = parse_utc_iso(snoozed_until_str)
             if snooze_dt and now_utc < snooze_dt:
                 new_scheduled_iso = format_utc_iso(snooze_dt)
-                new_dedupe = f"{item_id}:{kind}:{new_scheduled_iso}"
+                new_dedupe = f"{item_id}:{kind}:snoozed:{r_id}:{new_scheduled_iso}"
                 conn.execute(
                     """
                     UPDATE reminders
@@ -557,16 +740,10 @@ def dispatch_due_reminders(
                 continue
 
         # Guard 4: Deadline changed
-        if kind in ("deadline_24h", "deadline_3h"):
+        if kind.startswith("deadline_") and not is_final_submission_nudge(kind, reason):
             current_dl = parse_utc_iso(item.get("deadline_at"))
             if not current_dl:
                 conn.execute("UPDATE reminders SET status = 'skipped', reason = 'deadline_removed' WHERE id = ?;", (r_id,))
-                continue
-            delta_hours = 24 if kind == "deadline_24h" else 3
-            expected_time = current_dl - timedelta(hours=delta_hours)
-            actual_time = parse_utc_iso(scheduled_for_iso)
-            if actual_time and abs((expected_time - actual_time).total_seconds()) > 60:
-                conn.execute("UPDATE reminders SET status = 'skipped', reason = 'deadline_changed_since_scheduled' WHERE id = ?;", (r_id,))
                 continue
 
         # Guard 5: Event start passed
@@ -578,9 +755,9 @@ def dispatch_due_reminders(
                 conn.execute("UPDATE reminders SET status = 'skipped', reason = 'event_start_passed' WHERE id = ?;", (r_id,))
                 continue
 
-        # Guard 6: Quiet hours deferral
+        # Guard 6: Quiet hours deferral (ignored by time-critical reminders)
         is_urgent = kind.startswith("urgent")
-        if is_quiet and not (is_urgent and urgent_bypass):
+        if is_quiet and not is_time_critical and not (is_urgent and urgent_bypass):
             quiet_end_iso = format_utc_iso(quiet_end_utc)
             new_dedupe = f"{item_id}:{kind}:{quiet_end_iso}"
             conn.execute(
@@ -593,23 +770,28 @@ def dispatch_due_reminders(
             )
             continue
 
-        to_dispatch_items.append({"reminder": r, "item": item})
+        to_dispatch_items.append({
+            "reminder": r,
+            "item": item,
+            "delay_seconds": delay_seconds,
+            "delay_minutes": delay_minutes,
+            "is_time_critical": is_time_critical,
+            "scheduled_for": scheduled_for_iso,
+        })
 
     if not to_dispatch_items:
         return 0
 
-    # Guard 7: Morning Quiet-Hours Collapse
-    # If multiple reminders deferred from quiet hours are now due at or around the same time, collapse into 1 summary
+    # Guard 7: Morning Quiet-Hours Collapse (applies only to non-time-critical items)
     quiet_deferred = [
         entry for entry in to_dispatch_items
-        if "deferred_quiet_hours" in (entry["reminder"].get("reason") or "")
+        if not entry["is_time_critical"] and "deferred_quiet_hours" in (entry["reminder"].get("reason") or "")
     ]
     if len(quiet_deferred) >= 2:
         count = len(quiet_deferred)
         summary_title = "ClassMail J: Morning Summary"
         summary_body = f"ClassMail J: {count} items need attention"
-        
-        # Check demo status: only send to ntfy if not purely demo
+
         has_real_items = any(not e["item"].get("is_demo") for e in quiet_deferred)
         notify_demo = getattr(app.config, "NOTIFY_DEMO_ITEMS", False)
 
@@ -624,10 +806,10 @@ def dispatch_due_reminders(
 
         conn.execute(
             """
-            INSERT INTO notification_log (item_id, at, channel, title, body, outcome, error)
-            VALUES (NULL, ?, ?, ?, ?, ?, ?);
+            INSERT INTO notification_log (item_id, at, channel, title, body, outcome, error, scheduled_for, delay_seconds)
+            VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, 0);
             """,
-            (now_iso, channel, summary_title, summary_body, outcome, err),
+            (now_iso, channel, summary_title, summary_body, outcome, err, now_iso),
         )
 
         for entry in quiet_deferred:
@@ -637,7 +819,6 @@ def dispatch_due_reminders(
             )
             dispatched_count += 1
 
-        # Remove collapsed items from further individual processing
         collapsed_ids = {e["reminder"]["reminder_id"] for e in quiet_deferred}
         to_dispatch_items = [e for e in to_dispatch_items if e["reminder"]["reminder_id"] not in collapsed_ids]
 
@@ -645,6 +826,7 @@ def dispatch_due_reminders(
         return dispatched_count
 
     # Frequency cap check (MAX_NOTIFICATIONS_PER_HOUR)
+    # Time-critical reminders are NEVER collapsed away or deferred by the frequency cap
     one_hour_ago = format_utc_iso(now_utc - timedelta(hours=1))
     cur.execute(
         """
@@ -656,30 +838,37 @@ def dispatch_due_reminders(
     sent_in_last_hour = cur.fetchone()[0]
     max_per_hour = getattr(app.config, "MAX_NOTIFICATIONS_PER_HOUR", 5)
 
-    remaining_capacity = max(0, max_per_hour - sent_in_last_hour)
+    time_critical_entries = [e for e in to_dispatch_items if e["is_time_critical"]]
+    normal_entries = [e for e in to_dispatch_items if not e["is_time_critical"]]
 
-    if len(to_dispatch_items) > remaining_capacity and remaining_capacity > 0:
-        # Send up to capacity, then collapse the excess
-        can_send = to_dispatch_items[:remaining_capacity]
-        must_collapse = to_dispatch_items[remaining_capacity:]
+    remaining_capacity = max(0, max_per_hour - sent_in_last_hour - len(time_critical_entries))
+
+    if len(normal_entries) > remaining_capacity and remaining_capacity > 0:
+        can_send_normal = normal_entries[:remaining_capacity]
+        must_collapse_normal = normal_entries[remaining_capacity:]
     elif remaining_capacity == 0:
-        can_send = []
-        must_collapse = to_dispatch_items
+        can_send_normal = []
+        must_collapse_normal = normal_entries
     else:
-        can_send = to_dispatch_items
-        must_collapse = []
+        can_send_normal = normal_entries
+        must_collapse_normal = []
 
-    # Send allowable items individually
-    for entry in can_send:
+    # Send individual entries (all time-critical + allowed normal entries)
+    individual_entries = time_critical_entries + can_send_normal
+
+    for entry in individual_entries:
         rem = entry["reminder"]
         itm = entry["item"]
         title, body, prio = _build_minimal_message(itm.get("title"), rem["kind"], rem.get("reason"))
+
+        # If late within grace, append marker
+        if entry["delay_minutes"] >= 1:
+            body = f"{body} (late, {entry['delay_minutes']} min)"
 
         is_demo = bool(itm.get("is_demo", 0))
         notify_demo = getattr(app.config, "NOTIFY_DEMO_ITEMS", False)
 
         if is_demo and not notify_demo:
-            # Demo items logged locally, never sent to ntfy
             channel = "local"
             outcome = "logged"
             err = None
@@ -690,10 +879,10 @@ def dispatch_due_reminders(
 
         conn.execute(
             """
-            INSERT INTO notification_log (item_id, at, channel, title, body, outcome, error)
-            VALUES (?, ?, ?, ?, ?, ?, ?);
+            INSERT INTO notification_log (item_id, at, channel, title, body, outcome, error, scheduled_for, delay_seconds)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
             """,
-            (itm["id"], now_iso, channel, title, body, outcome, err),
+            (itm["id"], now_iso, channel, title, body, outcome, err, entry["scheduled_for"], entry["delay_seconds"]),
         )
         conn.execute(
             "UPDATE reminders SET status = 'sent', sent_at = ? WHERE id = ?;",
@@ -701,13 +890,13 @@ def dispatch_due_reminders(
         )
         dispatched_count += 1
 
-    # Collapse excess into one summary
-    if must_collapse:
-        count = len(must_collapse)
+    # Collapse excess normal entries into one summary
+    if must_collapse_normal:
+        count = len(must_collapse_normal)
         summary_title = "ClassMail J: Notification Summary"
         summary_body = f"ClassMail J: {count} additional notifications deferred (rate limited)"
 
-        has_real = any(not e["item"].get("is_demo") for e in must_collapse)
+        has_real = any(not e["item"].get("is_demo") for e in must_collapse_normal)
         notify_demo = getattr(app.config, "NOTIFY_DEMO_ITEMS", False)
 
         if has_real or notify_demo:
@@ -721,13 +910,13 @@ def dispatch_due_reminders(
 
         conn.execute(
             """
-            INSERT INTO notification_log (item_id, at, channel, title, body, outcome, error)
-            VALUES (NULL, ?, ?, ?, ?, ?, ?);
+            INSERT INTO notification_log (item_id, at, channel, title, body, outcome, error, scheduled_for, delay_seconds)
+            VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, 0);
             """,
-            (now_iso, channel, summary_title, summary_body, outcome, err),
+            (now_iso, channel, summary_title, summary_body, outcome, err, now_iso),
         )
 
-        for entry in must_collapse:
+        for entry in must_collapse_normal:
             conn.execute(
                 "UPDATE reminders SET status = 'sent', sent_at = ? WHERE id = ?;",
                 (now_iso, entry["reminder"]["reminder_id"]),
@@ -742,14 +931,7 @@ def run_reminder_tick(
     now_utc: datetime,
     ntfy_client: Optional[BaseNtfyClient] = None,
 ) -> Dict[str, Any]:
-    """Execute a single reminder tick:
-
-    1. Recomputes priority for all active items so time-based changes
-       (e.g. crossing 48h urgent threshold) are picked up immediately.
-    2. Runs replanning on any items whose priority changed.
-    3. Handles daily normal-priority digest if DIGEST_HOUR matches.
-    4. Evaluates dispatch guards and sends due reminders.
-    """
+    """Execute a single reminder tick."""
     if not get_notifications_enabled(conn):
         return {"status": "disabled", "recomputed": 0, "dispatched": 0}
 
@@ -830,10 +1012,10 @@ def run_reminder_tick(
 
                 conn.execute(
                     """
-                    INSERT INTO notification_log (item_id, at, channel, title, body, outcome, error)
-                    VALUES (NULL, ?, ?, ?, ?, ?, ?);
+                    INSERT INTO notification_log (item_id, at, channel, title, body, outcome, error, scheduled_for, delay_seconds)
+                    VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, 0);
                     """,
-                    (now_iso, channel, digest_title, digest_body, outcome, err),
+                    (now_iso, channel, digest_title, digest_body, outcome, err, now_iso),
                 )
             set_setting(setting_key, now_iso, conn=conn)
 
@@ -853,10 +1035,7 @@ def send_test_notification(
     ntfy_client: Optional[BaseNtfyClient] = None,
     now_utc: Optional[datetime] = None,
 ) -> Dict[str, Any]:
-    """Dispatch a test notification clearly labeled as a test.
-
-    Logs to notification_log and never crashes.
-    """
+    """Dispatch a test notification clearly labeled as a test."""
     now = now_utc or datetime.now(timezone.utc)
     now_iso = format_utc_iso(now)
     client = ntfy_client or NtfyClient()
@@ -870,10 +1049,10 @@ def send_test_notification(
 
     conn.execute(
         """
-        INSERT INTO notification_log (item_id, at, channel, title, body, outcome, error)
-        VALUES (NULL, ?, ?, ?, ?, ?, ?);
+        INSERT INTO notification_log (item_id, at, channel, title, body, outcome, error, scheduled_for, delay_seconds)
+        VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, 0);
         """,
-        (now_iso, channel, test_title, test_body, outcome, err),
+        (now_iso, channel, test_title, test_body, outcome, err, now_iso),
     )
 
     return {
@@ -911,4 +1090,3 @@ def get_notification_status(conn: sqlite3.Connection, now_utc: Optional[datetime
         "max_per_hour": getattr(app.config, "MAX_NOTIFICATIONS_PER_HOUR", 5),
         "recent_count": recent_count,
     }
-

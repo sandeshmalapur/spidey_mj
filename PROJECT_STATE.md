@@ -1,55 +1,80 @@
 # ClassMail J - Project State
 
 ## Current Milestone
-- Milestone 7: Deterministic Reminders and Notification System (pure deterministic planning, bounded urgent escalation, confirmed deadline T-24h/T-3h reminders, ambiguous confirmation requests, replanning upon item changes, quiet-hours deferral and morning summary collapse, frequency-cap collapse, demo item isolation, ntfy HTTP plain-text client, test notification, notification status, persistent settings toggle, and frontend notification panel).
+- Milestone 10: Google Sign-In (OpenID Connect) & Unified Data Consent (optional single-owner authentication, authorization-code flow with PKCE, server-side session cookies, unified data consent requesting Gmail and Classroom read-only scopes, automatic background first sync, per-source connection state, Google token revocation, and CLI fallback).
 
 ## Implemented Features
-- **Backend Scaffold & SQLite Database**: FastAPI application with strict CORS, additive migrations, `items`, `sources`, `item_events`, `sync_history`, `settings`, `reminders`, and `notification_log` tables.
+- **Google OpenID Connect (OIDC) & Unified Data Consent**:
+  - Optional single-owner authentication toggleable via `AUTH_ENABLED` (default `false` keeps application completely unauthenticated for local development).
+  - Authorization-code flow with PKCE (`code_verifier`, `code_challenge` via S256) and single-use server-side `state` and `nonce` stored in SQLite `auth_states` table.
+  - Unified single-consent flow requesting identity (`openid`, `email`, `profile`) plus read-only Gmail (`gmail.readonly`) and read-only Google Classroom scopes in one request with `access_type=offline`, `include_granted_scopes=true`, and `prompt=consent`.
+  - Secure callback (`GET /api/auth/google/callback`): validates state, exchanges code with PKCE, verifies Google ID token (signature, issuer `accounts.google.com`, audience, expiry, nonce match, verified email), and restricts access strictly to `OWNER_EMAIL`.
+  - Non-owner attempts receive a generic 403 Forbidden page and store nothing.
+  - Inspects granted scopes and saves `token_gmail.json` and `token_classroom.json` at existing paths in the authorized user credentials format read by existing sync clients.
+  - Automatic non-blocking first sync triggered immediately after successful callback for granted sources.
+  - Server-side sessions table and signed `HttpOnly`, `SameSite=Lax` session cookie with constant-time HMAC-SHA256 signature verification.
+  - Endpoints: `GET /api/auth/google/start`, `GET /api/auth/google/callback`, `GET /api/auth/me`, `POST /api/auth/logout`, `GET /api/connections`, `POST /api/connections/disconnect`.
+  - Token revocation endpoint integration with `https://oauth2.googleapis.com/revoke`.
+  - UI integration: dedicated signed-out screen when auth enabled, owner identity badge and sign-out in header, and per-source connection status strip ("Gmail connected", "Classroom not granted", "Reconnect needed") with in-app reconnect buttons and CLI fallback.
+- **Security & Network Hardening**:
+  - `TrustedHostMiddleware` restricting host headers strictly to loopback and local development hosts (`localhost`, `127.0.0.1`, `testserver`).
+  - Origin validation middleware (`check_origin_middleware`) rejecting state-changing HTTP requests (`POST`, `PATCH`, `DELETE`, `PUT`) with unapproved Origin headers (HTTP 403 Forbidden).
+  - Secret protection audit: git scan confirmed zero committed `.env`, token, database, or secret files. Plain text rendering audited with zero `dangerouslySetInnerHTML` or raw `innerHTML`. Outbound external links strictly use `rel="noopener noreferrer"`.
+  - Frontend security audit: `npm audit` returned 0 vulnerabilities.
+- **Backend Scaffold & SQLite Database**: FastAPI application with strict CORS, additive migrations, `items` (with `duration_minutes` and `source_status`), `sources`, `item_events`, `sync_history`, `settings`, `reminders`, and `notification_log` (with `scheduled_for` and `delay_seconds`) tables.
 - **Rules Extraction & Priority Engine**:
   - Deterministic rules-based extraction with pre-normalization (stripping markdown, HTML entities, and zero-width characters while preserving original stored evidence).
   - Hardened candidate date/time parser: optional weekdays, ISO dates, multi-format calendar dates, 12h/24h times, ranges, and configurable `DEFAULT_IST_MEANING`.
-  - Actionable classification for interviews, meetings, and events (with "Confirm attendance" action).
-  - Non-overdue event status handling ("Event time has passed") for past events.
-  - Re-analysis endpoints (`POST /api/items/{id}/reanalyze` and `POST /api/reanalyze`) preserving user-edited fields tracked via `user_edited_fields`.
+  - Actionable classification for interviews, meetings, events, and assessments.
+  - Kind `assessment` (cues: test, quiz, exam, assessment, timed; item_type task).
+  - Duration extraction: parses "45 minutes", "45-minute", "45 mins", "1 hour", "1.5 hours", "1h 30m", "duration: 45 min", "time limit 30 min" with sanity range 5-600 minutes. Duration is never a deadline.
+  - Re-analysis endpoints (`POST /api/items/{id}/reanalyze` and `POST /api/reanalyze`) preserving user-edited fields (including duration) tracked via `user_edited_fields`.
 - **Gmail Read-Only Integration**:
   - OAuth Desktop loopback auth CLI (`python -m app.integrations.google_auth gmail`).
   - Read-only GmailClient fetching plain-text / sanitized HTML bodies, deduplicating messages, updating thread-linked deadlines, and recording item events.
 - **Google Classroom Read-Only Integration**:
-  - Loopback OAuth CLI (`python -m app.integrations.google_auth classroom`) saving to `CLASSROOM_TOKEN_FILE` with strictly 4 read-only scopes.
+  - Loopback OAuth CLI (`python -m app.integrations.google_auth classroom`) saving to `CLASSROOM_TOKEN_FILE` with strictly read-only scopes.
   - `ClassroomClient` wrapper querying active courses, coursework (with pagination), announcements, and student submission states.
   - Accurate UTC conversion for `dueDate` and `dueTime`.
 - **Automatic Background Sync**:
   - APScheduler `BackgroundScheduler` running inside the FastAPI lifespan every `SYNC_INTERVAL_MINUTES`.
   - Shared concurrency lock (`threading.Lock`) between background runs and manual sync buttons.
+  - Individual job isolation: background Gmail and Classroom failures are isolated so one failure never blocks the other.
   - Exponential backoff on network/quota errors (capped at 30 minutes).
   - Auth failure handling with exact re-auth command.
   - Endpoints: `GET /api/sync/status`, `POST /api/sync/settings`, `POST /api/sync/gmail`, and `POST /api/sync/classroom`.
-- **Deterministic Reminders & Notification System**:
+- **Deterministic Reminders & Timing Refinements**:
   - Reminder tick job executed every `REMINDER_TICK_SECONDS` (default 60s) via the shared APScheduler instance with an injectable clock.
-  - Dynamic priority recomputation on active items during each tick to catch time-based urgency threshold crossings (e.g. crossing 48h boundary).
-  - Additive database tables: `reminders` (with unique `dedupe_key` preventing duplication) and `notification_log`.
-  - Schedule rules:
-    - Urgent: notified once upon urgency, followed by bounded escalation up to `URGENT_MAX_REPEATS` at least `URGENT_REPEAT_MINUTES` apart until acknowledged, started, completed, or cancelled.
-    - Confirmed deadlines: reminders at T-24h and T-3h; past times skipped; past events receive no reminders.
-    - Important: notified once if not already notified at higher level, plus T-24h reminder.
-    - Normal: no individual push; included in daily digest at `DIGEST_HOUR` in user `TIMEZONE`.
-    - Ambiguous: single "needs your confirmation" request.
-  - Replanning: automatic cancellation of obsolete reminders and creation of updated reminders on deadline change, state update, snooze, acknowledgement, or re-analysis.
-  - Dispatch guards: live item check, skip completed/cancelled/acknowledged, snooze reschedule, quiet-hours deferral and morning summary collapse, frequency-cap collapse (`MAX_NOTIFICATIONS_PER_HOUR`), and demo item isolation (logged locally).
-  - Ntfy Publisher: HTTP POST of minimal, generic plain-text (`NTFY_SERVER` + `/` + `NTFY_TOPIC`) with 5s timeout and ASCII headers. Never includes email bodies, evidence text, or sender names. Never logs or exposes `NTFY_TOPIC`.
-  - Endpoints: `GET /api/notifications`, `POST /api/notifications/test`, `GET /api/notifications/status`, `POST /api/notifications/settings`.
+  - Exact timing with one-shot `DateTrigger` APScheduler jobs for time-critical reminders (`latest_start` and final submission nudge), automatically re-created at startup via `rebuild_oneshot_reminder_jobs()`.
+  - Assessment reminders:
+    - Confirmed deadline + duration schedules kind `latest_start` at `deadline_at - duration_minutes`. Minimal text: "ClassMail J: start your assessment now to finish before the deadline".
+    - Optional heads-up at `latest_start - ASSESSMENT_HEADSUP_MINUTES` (default 30; 0 disables). Kind `assessment_headsup`.
+    - If `latest_start` has passed but deadline has not: sends ONE immediate "latest start has passed, N minutes remain" message. If deadline has passed, sends nothing.
+    - If assessment has no duration: falls back to standard assignment offsets and UI prompts to add duration.
+  - Submission reminders:
+    - Configurable offsets: `REMINDER_OFFSETS_ASSIGNMENT_MINUTES="1440,180,45"` and `REMINDER_OFFSETS_EVENT_MINUTES="1440,60,15"` (at most 3 deadline reminders per item).
+    - If item is first seen inside window: sends ONLY the single nearest remaining reminder immediately (no backlog).
+    - Final-offset text: "ClassMail J: 1 submission due soon, upload now" with priority urgent.
+  - Time-critical rules: `latest_start` and final submission nudge ignore quiet hours and snooze, are never collapsed away or deferred by the frequency cap (still count toward cap), and use ntfy priority urgent.
+  - Catch-up grace handling: if overdue by `<= CATCHUP_GRACE_MINUTES` (default 15), sent marked `(late, N min)`; if overdue by `> CATCHUP_GRACE_MINUTES`, marked `skipped` with reason `catchup_grace_exceeded`. Delay seconds and scheduled time recorded in `notification_log`.
+  - Suppression: cancels and suppresses deadline reminders when state is completed/cancelled OR when `source_status` is `TURNED_IN`. Acknowledging stops escalation repeats but never cancels `latest_start` or final submission nudge. Any deadline, duration, or state change replaces pending schedule.
+  - Ntfy Publisher: HTTP POST of minimal generic plain-text with 5s timeout and ASCII headers. Never logs or exposes `NTFY_TOPIC`.
 - **Frontend Dashboard**:
   - React + Vite + TypeScript application with priority tabs, snooze presets, full CRUD lifecycle, manual paste modal, and re-analysis controls.
-  - Notifications Center modal displaying delivery status cards, quiet hours, rate limit, runtime enable/pause toggle, "Send Test Alert" action, and recent delivery logs table.
-  - Per-item "Next reminder" indicators on item cards and in the item detail view.
-  - "📥 Sync Classroom now" and "📥 Sync Gmail now" buttons with live sync status.
-  - Visual distinction with `Classroom` and `Gmail` source badges and "Turned in per Classroom" badge.
+  - Clear source badges across all item cards and detail view: `Demo`, `Manual`, `Gmail`, and `Classroom`.
+  - Prominent top warning banner displayed whenever demo data is active.
+  - "Reset Demo Data" action (`POST /api/demo/reset`) clearing and reloading fresh relative-date demo items (including same-day 45-min assessment and same-day 5h assignment).
+  - Diagnostic "System Status" panel modal (`GET /api/system/status`) reporting local database health, token presence booleans, ntfy status, and scheduler state with zero secrets exposed.
+  - Item edit modal supporting duration (minutes) editing and tracking in `user_edited_fields`.
+  - Assessment cards showing "Start by 1:15 PM" (or "Add duration to get a start-time reminder") and "Duration 45 min".
+  - Item detail view featuring a live "Next reminders" list with exact scheduled times and kinds (via `GET /api/items/{id}/reminders`).
+  - Notification Center modal displaying scheduled time and delivery delay (`on-time` vs `+{N}s`) for each notification entry.
 
 ## Mocked vs Real
 - **Database & Settings**: Real SQLite database (`backend/data/classmail.db`), additive schema migrations, and persistent `settings` table.
-- **Scheduler**: Real APScheduler `BackgroundScheduler` in FastAPI lifespan with real threading locks.
+- **Scheduler**: Real APScheduler `BackgroundScheduler` in FastAPI lifespan with real threading locks and exact `DateTrigger` one-shot jobs.
 - **Gmail Integration**: Real Gmail API client wrapper; unit tests use a `MockGmailClient` and `FakeClock` clearly documented as mocks (unit tests do not prove real Gmail works).
-- **Classroom Integration**: Real Classroom API client wrapper (`app.integrations.classroom_client.ClassroomClient`); unit tests use a `MockClassroomClient` clearly documented as a mock (unit tests do not prove real Google Classroom works).
+- **Classroom Integration**: Real Classroom API client wrapper; unit tests use a `MockClassroomClient` clearly documented as a mock (unit tests do not prove real Google Classroom works).
 - **Notifications & Reminders**: Real ntfy HTTP client (`app.reminders.NtfyClient`) publishing to ntfy server; unit tests use `MockNtfyClient` and `FakeClock` clearly documented as mocks (unit tests do not prove real ntfy delivery).
 
 ## Stack and Run Commands
@@ -106,13 +131,18 @@
 - `NTFY_SERVER`
 - `NTFY_TOPIC`
 - `NTFY_INCLUDE_TITLE`
+- `ASSESSMENT_HEADSUP_MINUTES`
+- `CATCHUP_GRACE_MINUTES`
+- `REMINDER_OFFSETS_ASSIGNMENT_MINUTES`
+- `REMINDER_OFFSETS_EVENT_MINUTES`
 
 ## Tests Last Run
-- Backend Pytest (`cd backend; .\.venv\Scripts\python.exe -m pytest -v`): 83 passed across all 7 test suites (`test_reminders_and_notifications.py`, `test_classroom_sync.py`, `test_background_sync.py`, `test_extraction_and_priority.py`, `test_gmail_sync.py`, `test_health_and_db.py`, `test_items_api.py`).
-- Frontend Build (`cd frontend; npm run build`): TypeScript check and Vite build passed in 164ms with 0 errors.
+- Backend Pytest (`cd backend; .\.venv\Scripts\python.exe -m pytest -q`): 110 passed across all 9 test suites (`test_e2e_integration.py`, `test_assessment_reminders.py`, `test_reminders_and_notifications.py`, `test_classroom_sync.py`, `test_background_sync.py`, `test_extraction_and_priority.py`, `test_gmail_sync.py`, `test_health_and_db.py`, `test_items_api.py`).
+- Frontend Build (`cd frontend; npm run build`): TypeScript compile and Vite production build passed in 229ms with 0 errors.
+- Frontend Security (`cd frontend; npm audit`): 0 vulnerabilities found.
 
 ## Known Blockers
 - None.
 
 ## Next Step
-- Milestone 8 / Production Polish & Deployment.
+- Complete live demonstration using `DEMO_SCRIPT.md`.

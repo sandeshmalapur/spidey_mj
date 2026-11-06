@@ -47,7 +47,8 @@ CREATE TABLE IF NOT EXISTS items (
     completed_at TEXT,
     user_edited_fields TEXT NOT NULL DEFAULT '[]',
     source_status TEXT,
-    deadline_changed_at TEXT
+    deadline_changed_at TEXT,
+    duration_minutes INTEGER
 );
 """
 
@@ -113,7 +114,41 @@ CREATE TABLE IF NOT EXISTS notification_log (
     body TEXT NOT NULL,
     outcome TEXT NOT NULL,
     error TEXT,
+    scheduled_for TEXT,
+    delay_seconds INTEGER,
     FOREIGN KEY(item_id) REFERENCES items(id) ON DELETE SET NULL
+);
+"""
+
+SCHEMA_SESSIONS_SQL = """
+CREATE TABLE IF NOT EXISTS sessions (
+    id TEXT PRIMARY KEY,
+    email TEXT NOT NULL,
+    display_name TEXT,
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL
+);
+"""
+
+SCHEMA_AUTH_STATES_SQL = """
+CREATE TABLE IF NOT EXISTS auth_states (
+    state TEXT PRIMARY KEY,
+    flow_type TEXT NOT NULL,
+    code_verifier TEXT NOT NULL,
+    nonce TEXT,
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL
+);
+"""
+
+SCHEMA_PENDING_CONNECTIONS_SQL = """
+CREATE TABLE IF NOT EXISTS pending_connections (
+    id TEXT PRIMARY KEY,
+    source_type TEXT NOT NULL,
+    granted_email TEXT NOT NULL,
+    token_json TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL
 );
 """
 
@@ -128,6 +163,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_reminders_dedupe ON reminders(dedupe_key);
 CREATE INDEX IF NOT EXISTS idx_reminders_item_status ON reminders(item_id, status);
 CREATE INDEX IF NOT EXISTS idx_reminders_scheduled ON reminders(scheduled_for, status);
 CREATE INDEX IF NOT EXISTS idx_notification_log_at ON notification_log(at);
+CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
+CREATE INDEX IF NOT EXISTS idx_auth_states_expires_at ON auth_states(expires_at);
+CREATE INDEX IF NOT EXISTS idx_pending_connections_expires_at ON pending_connections(expires_at);
 """
 
 
@@ -205,6 +243,8 @@ def init_db(custom_path: Optional[str] = None) -> str:
                         conn.execute("ALTER TABLE items ADD COLUMN source_status TEXT;")
                     if "deadline_changed_at" not in existing_cols:
                         conn.execute("ALTER TABLE items ADD COLUMN deadline_changed_at TEXT;")
+                    if "duration_minutes" not in existing_cols:
+                        conn.execute("ALTER TABLE items ADD COLUMN duration_minutes INTEGER;")
             else:
                 conn.executescript(SCHEMA_ITEMS_SQL)
 
@@ -213,6 +253,18 @@ def init_db(custom_path: Optional[str] = None) -> str:
             conn.executescript(SCHEMA_SETTINGS_SQL)
             conn.executescript(SCHEMA_REMINDERS_SQL)
             conn.executescript(SCHEMA_NOTIFICATION_LOG_SQL)
+            conn.executescript(SCHEMA_SESSIONS_SQL)
+            conn.executescript(SCHEMA_AUTH_STATES_SQL)
+            conn.executescript(SCHEMA_PENDING_CONNECTIONS_SQL)
+
+            # Check notification_log columns for migration
+            cur.execute("PRAGMA table_info(notification_log);")
+            notif_cols = {row["name"] for row in cur.fetchall()}
+            if "scheduled_for" not in notif_cols:
+                conn.execute("ALTER TABLE notification_log ADD COLUMN scheduled_for TEXT;")
+            if "delay_seconds" not in notif_cols:
+                conn.execute("ALTER TABLE notification_log ADD COLUMN delay_seconds INTEGER;")
+
             conn.executescript(SCHEMA_INDEX_SQL)
     finally:
         conn.close()
