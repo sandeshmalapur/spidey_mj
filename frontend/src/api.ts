@@ -13,6 +13,7 @@ import type {
   OllamaStatusResponse,
   Priority,
   Reminder,
+  SarvamVoiceStatusResponse,
   SyncResult,
   SyncStatus,
   SystemStatusResponse,
@@ -193,6 +194,15 @@ export const api = {
 
   getOllamaStatus: () =>
     request<OllamaStatusResponse>('/api/ollama/status'),
+
+  getSarvamStatus: () =>
+    request<SarvamVoiceStatusResponse>('/api/sarvam/status'),
+
+  triggerSarvamTestCall: (payload: { item_id?: number; item_title?: string; deadline_label?: string }) =>
+    request<{ success: boolean; skipped: boolean; reason?: string; call_id?: string; error?: string; dry_run?: boolean }>(
+      '/api/sarvam/test-call',
+      { method: 'POST', body: JSON.stringify(payload) },
+    ),
 
   getAuthMe: () =>
     request<AuthMeResponse>('/api/auth/me'),

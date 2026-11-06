@@ -200,6 +200,13 @@ export interface OllamaStatusResponse {
   error?: string | null;
 }
 
+export interface SarvamVoiceStatusResponse {
+  enabled: boolean;
+  configured: boolean;
+  max_calls_per_hour: number;
+  calls_in_last_hour: number;
+}
+
 export interface SystemStatusResponse {
   database_ok: boolean;
   gmail_token_present: boolean;

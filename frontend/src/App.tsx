@@ -13,6 +13,7 @@ import type {
   NotificationStatus,
   Priority,
   Reminder,
+  SarvamVoiceStatusResponse,
   SyncStatus,
   SystemStatusResponse,
 } from './types';
@@ -138,6 +139,76 @@ function getRelativeTimeLabel(dateStr: string | null | undefined): { label: stri
   if (diffDays >= 1) return { label: `due in ${diffDays}d`, isPast: false };
   if (diffHours >= 1) return { label: `due in ${diffHours}h`, isPast: false };
   return { label: `due in ${diffMins}m`, isPast: false };
+}
+
+// ---------------------------------------------------------------------------
+// Sarvam AI Voice Status Row — lazy-loaded inline in Diagnostics modal
+// ---------------------------------------------------------------------------
+function SarvamStatusRow() {
+  const [status, setStatus] = React.useState<SarvamVoiceStatusResponse | null>(null);
+  const [loading, setLoading] = React.useState(false);
+  const [calling, setCalling] = React.useState(false);
+  const [callResult, setCallResult] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    setLoading(true);
+    api.getSarvamStatus()
+      .then(setStatus)
+      .catch(() => setStatus(null))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleTestCall = async () => {
+    setCalling(true);
+    setCallResult(null);
+    try {
+      const r = await api.triggerSarvamTestCall({ item_title: 'Test Alert', deadline_label: 'now' });
+      setCallResult(r.success ? `Call placed${r.call_id ? ` (id: ${r.call_id})` : ''}` : (r.reason ?? r.error ?? 'Failed'));
+    } catch (e: unknown) {
+      setCallResult(e instanceof Error ? e.message : 'Error');
+    } finally {
+      setCalling(false);
+    }
+  };
+
+  if (loading) return (
+    <div style={{ padding: '0.5rem 0', borderBottom: '1px solid var(--border-subtle)', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+      Checking Sarvam AI...
+    </div>
+  );
+
+  return (
+    <>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid var(--border-subtle)' }}>
+        <strong>Voice Calls (Sarvam AI):</strong>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          {status ? (
+            <span className={`badge ${status.enabled ? 'badge-source-classroom' : 'badge-state'}`}>
+              {status.enabled ? `Enabled (${status.calls_in_last_hour}/${status.max_calls_per_hour}/hr)` : 'Disabled'}
+            </span>
+          ) : (
+            <span className="badge badge-state">Unavailable</span>
+          )}
+          {status?.enabled && (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ fontSize: '0.78rem', padding: '0.2rem 0.6rem' }}
+              onClick={handleTestCall}
+              disabled={calling}
+            >
+              {calling ? 'Calling...' : 'Test Call'}
+            </button>
+          )}
+        </div>
+      </div>
+      {callResult && (
+        <div style={{ padding: '0.3rem 0.5rem', fontSize: '0.82rem', color: 'var(--text-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
+          {callResult}
+        </div>
+      )}
+    </>
+  );
 }
 
 export default function App() {
@@ -1963,6 +2034,8 @@ export default function App() {
                       </span>
                     </div>
                   )}
+
+                  <SarvamStatusRow />
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid var(--border-subtle)' }}>
                     <strong>Scheduler (APScheduler):</strong>

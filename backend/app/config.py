@@ -113,6 +113,31 @@ def validate_ollama_url(url: str, allow_remote: bool = False) -> str:
     return url
 
 
+# ---------------------------------------------------------------------------
+# Sarvam AI Voice Call Integration (optional)
+# ---------------------------------------------------------------------------
+# SARVAM_VOICE_ENABLED  - master toggle (default false)
+# SARVAM_API_KEY        - Sarvam AI API key (required when enabled)
+# SARVAM_FROM_NUMBER    - Sarvam-provisioned caller number E.164 e.g. +912269XXXXXX
+# SARVAM_TO_NUMBER      - recipient phone number E.164 e.g. +919876543210
+# SARVAM_AGENT_ID       - optional pre-built Sarvam agent id
+# SARVAM_MAX_CALLS_PER_HOUR - rate limit per process restart (default 3)
+
+
+class _Settings:
+    """Lazy settings accessor so values are read once and cached."""
+
+    # --- Sarvam Voice ---
+    SARVAM_VOICE_ENABLED: bool = os.getenv("SARVAM_VOICE_ENABLED", "false").lower() in ("true", "1", "yes")
+    SARVAM_API_KEY: str = os.getenv("SARVAM_API_KEY", "")
+    SARVAM_FROM_NUMBER: str = os.getenv("SARVAM_FROM_NUMBER", "")
+    SARVAM_TO_NUMBER: str = os.getenv("SARVAM_TO_NUMBER", "")
+    SARVAM_AGENT_ID: str = os.getenv("SARVAM_AGENT_ID", "")
+    SARVAM_MAX_CALLS_PER_HOUR: int = int(os.getenv("SARVAM_MAX_CALLS_PER_HOUR", "3"))
+
+
+settings = _Settings()
+
 _raw_origins = os.getenv("FRONTEND_ORIGIN", "http://localhost:5173,http://127.0.0.1:5173")
 ALLOWED_ORIGINS = [
     origin.strip()

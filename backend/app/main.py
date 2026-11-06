@@ -74,6 +74,11 @@ from app.reminders import (
     set_notifications_enabled,
 )
 from app.scheduler import sync_scheduler
+from app.integrations.sarvam_voice import (
+    get_voice_status,
+    is_voice_enabled,
+    trigger_urgent_voice_call,
+)
 
 
 class HealthResponse(BaseModel):
@@ -1021,6 +1026,60 @@ def get_system_status_endpoint() -> SystemStatusResponse:
 def get_ollama_status_endpoint() -> OllamaStatusResponse:
     """Return status of Ollama connection, configured model, and availability."""
     return OllamaStatusResponse(**check_ollama_status())
+
+
+# ---------------------------------------------------------------------------
+# Sarvam AI Voice Call endpoints
+# ---------------------------------------------------------------------------
+
+class SarvamVoiceStatusResponse(BaseModel):
+    enabled: bool
+    configured: bool
+    max_calls_per_hour: int
+    calls_in_last_hour: int
+
+
+class SarvamTestCallRequest(BaseModel):
+    item_id: int = Field(default=0, description="Item id (0 = test ping)")
+    item_title: str = Field(default="Test Alert", max_length=200)
+    deadline_label: str = Field(default="", max_length=100)
+
+
+class SarvamTestCallResponse(BaseModel):
+    success: bool
+    skipped: bool
+    reason: Optional[str] = None
+    call_id: Optional[str] = None
+    error: Optional[str] = None
+    dry_run: Optional[bool] = None
+
+
+@app.get("/api/sarvam/status", response_model=SarvamVoiceStatusResponse)
+def get_sarvam_status_endpoint() -> SarvamVoiceStatusResponse:
+    """Return Sarvam AI voice call configuration status."""
+    return SarvamVoiceStatusResponse(**get_voice_status())
+
+
+@app.post("/api/sarvam/test-call", response_model=SarvamTestCallResponse)
+def post_sarvam_test_call(body: SarvamTestCallRequest) -> SarvamTestCallResponse:
+    """
+    Place a test voice call via Sarvam AI.
+    Uses dry_run=False so the call is actually placed when configured.
+    Returns an error if Sarvam is not configured.
+    """
+    if not is_voice_enabled():
+        return SarvamTestCallResponse(
+            success=False,
+            skipped=True,
+            reason="SARVAM_VOICE_ENABLED is false or required env vars are missing",
+        )
+    result = trigger_urgent_voice_call(
+        item_id=body.item_id,
+        item_title=body.item_title,
+        deadline_label=body.deadline_label,
+        dry_run=False,
+    )
+    return SarvamTestCallResponse(**result)
 
 
 @app.delete("/api/demo")
