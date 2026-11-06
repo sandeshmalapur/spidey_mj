@@ -7,6 +7,7 @@ import type {
   ItemType,
   Priority,
   SyncResult,
+  ClassroomSyncResult,
   SyncStatus,
 } from './types';
 
@@ -128,6 +129,11 @@ export const api = {
 
   syncGmail: () =>
     request<SyncResult>('/api/sync/gmail', {
+      method: 'POST',
+    }),
+
+  syncClassroom: () =>
+    request<ClassroomSyncResult>('/api/sync/classroom', {
       method: 'POST',
     }),
 

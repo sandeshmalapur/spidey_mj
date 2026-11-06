@@ -30,6 +30,10 @@ GMAIL_TOKEN_FILE = os.getenv(
     "GMAIL_TOKEN_FILE",
     str(Path(__file__).resolve().parent.parent / "secrets" / "token_gmail.json"),
 )
+CLASSROOM_TOKEN_FILE = os.getenv(
+    "CLASSROOM_TOKEN_FILE",
+    str(Path(__file__).resolve().parent.parent / "secrets" / "token_classroom.json"),
+)
 GMAIL_QUERY = os.getenv("GMAIL_QUERY", "newer_than:7d in:inbox")
 GMAIL_MAX_MESSAGES = int(os.getenv("GMAIL_MAX_MESSAGES", "25"))
 

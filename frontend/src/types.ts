@@ -53,10 +53,20 @@ export interface Item {
   created_at: string;
   updated_at: string;
   completed_at: string | null;
+  source_status?: string | null;
+  deadline_changed_at?: string | null;
 }
 
 export interface SyncCounts {
   fetched: number;
+  created: number;
+  updated: number;
+  skipped: number;
+  errors: number;
+}
+
+export interface ClassroomSyncCounts {
+  courses: number;
   created: number;
   updated: number;
   skipped: number;
@@ -75,12 +85,25 @@ export interface SyncStatus {
   reconnect_command: string | null;
   consecutive_errors?: number;
   backoff_minutes?: number | null;
+  // Classroom status
+  classroom_status?: 'idle' | 'success' | 'error' | 'running' | 'reconnect_needed';
+  classroom_last_synced_at?: string | null;
+  classroom_counts?: ClassroomSyncCounts;
+  classroom_error_message?: string | null;
+  classroom_reconnect_command?: string | null;
 }
 
 export interface SyncResult {
   status: 'success' | 'error' | 'skipped';
   message: string;
   counts: SyncCounts;
+  error_message?: string | null;
+}
+
+export interface ClassroomSyncResult {
+  status: 'success' | 'error' | 'skipped' | 'reconnect_needed';
+  message: string;
+  counts: ClassroomSyncCounts;
   error_message?: string | null;
 }
 

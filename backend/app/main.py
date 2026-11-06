@@ -13,6 +13,8 @@ from app.db import check_db_health, get_connection, init_db, utc_now_iso
 from app.demo_data import get_demo_items
 from app.extraction import RulesProvider
 from app.models import (
+    ClassroomSyncCounts,
+    ClassroomSyncResultResponse,
     DeadlineStatus,
     ItemCreate,
     ItemKind,
@@ -613,6 +615,18 @@ def sync_gmail_endpoint() -> SyncResultResponse:
             status="skipped",
             message="Sync already in progress. Please wait for the current run to finish.",
             counts=SyncCounts(),
+        )
+    return res
+
+
+@app.post("/api/sync/classroom", response_model=ClassroomSyncResultResponse)
+def sync_classroom_endpoint() -> ClassroomSyncResultResponse:
+    res = sync_scheduler.run_classroom_sync(is_manual=True)
+    if res is None:
+        return ClassroomSyncResultResponse(
+            status="skipped",
+            message="Sync already in progress. Please wait for the current run to finish.",
+            counts=ClassroomSyncCounts(),
         )
     return res
 

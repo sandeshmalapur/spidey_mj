@@ -45,7 +45,9 @@ CREATE TABLE IF NOT EXISTS items (
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     completed_at TEXT,
-    user_edited_fields TEXT NOT NULL DEFAULT '[]'
+    user_edited_fields TEXT NOT NULL DEFAULT '[]',
+    source_status TEXT,
+    deadline_changed_at TEXT
 );
 """
 
@@ -166,6 +168,10 @@ def init_db(custom_path: Optional[str] = None) -> str:
                         conn.execute("ALTER TABLE items ADD COLUMN thread_id TEXT;")
                     if "user_edited_fields" not in existing_cols:
                         conn.execute("ALTER TABLE items ADD COLUMN user_edited_fields TEXT NOT NULL DEFAULT '[]';")
+                    if "source_status" not in existing_cols:
+                        conn.execute("ALTER TABLE items ADD COLUMN source_status TEXT;")
+                    if "deadline_changed_at" not in existing_cols:
+                        conn.execute("ALTER TABLE items ADD COLUMN deadline_changed_at TEXT;")
             else:
                 conn.executescript(SCHEMA_ITEMS_SQL)
 

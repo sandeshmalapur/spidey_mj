@@ -130,6 +130,8 @@ class ItemResponse(BaseModel):
     updated_at: str
     completed_at: Optional[str] = None
     user_edited_fields: List[str] = Field(default_factory=list)
+    source_status: Optional[str] = None
+    deadline_changed_at: Optional[str] = None
 
     @classmethod
     def from_row(cls, row: dict[str, Any]) -> "ItemResponse":
@@ -189,6 +191,8 @@ class ItemResponse(BaseModel):
             updated_at=row["updated_at"],
             completed_at=row.get("completed_at"),
             user_edited_fields=edited_list,
+            source_status=row.get("source_status"),
+            deadline_changed_at=row.get("deadline_changed_at"),
         )
 
 
@@ -213,6 +217,21 @@ class SyncCounts(BaseModel):
     errors: int = 0
 
 
+class ClassroomSyncCounts(BaseModel):
+    courses: int = 0
+    created: int = 0
+    updated: int = 0
+    skipped: int = 0
+    errors: int = 0
+
+
+class ClassroomSyncResultResponse(BaseModel):
+    status: str
+    message: str
+    counts: ClassroomSyncCounts = Field(default_factory=ClassroomSyncCounts)
+    error_message: Optional[str] = None
+
+
 class SyncSettingsUpdate(BaseModel):
     auto_sync_enabled: bool
 
@@ -229,6 +248,13 @@ class SyncStatusResponse(BaseModel):
     reconnect_command: Optional[str] = None
     consecutive_errors: int = 0
     backoff_minutes: Optional[int] = None
+
+    # Classroom sync status fields
+    classroom_status: str = "idle"  # "idle", "running", "error", "reconnect_needed"
+    classroom_last_synced_at: Optional[str] = None
+    classroom_counts: ClassroomSyncCounts = Field(default_factory=ClassroomSyncCounts)
+    classroom_error_message: Optional[str] = None
+    classroom_reconnect_command: Optional[str] = None
 
 
 class SyncResultResponse(BaseModel):

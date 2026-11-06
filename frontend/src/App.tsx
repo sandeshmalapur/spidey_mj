@@ -81,9 +81,10 @@ export default function App() {
   const [pasteEvidence, setPasteEvidence] = useState('');
   const [pasteSubmitting, setPasteSubmitting] = useState(false);
 
-  // Gmail sync state
+  // Sync state
   const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
   const [syncing, setSyncing] = useState<boolean>(false);
+  const [syncingClassroom, setSyncingClassroom] = useState<boolean>(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [togglingSync, setTogglingSync] = useState<boolean>(false);
 
@@ -134,6 +135,27 @@ export default function App() {
       setSyncError(err instanceof Error ? err.message : 'Gmail sync failed');
     } finally {
       setSyncing(false);
+    }
+  };
+
+  // Trigger Google Classroom Sync
+  const handleSyncClassroom = async () => {
+    setSyncingClassroom(true);
+    setSyncError(null);
+    try {
+      const res = await api.syncClassroom();
+      if (res.status === 'error' || res.status === 'reconnect_needed') {
+        setSyncError(res.error_message || res.message);
+      } else {
+        setActionSuccess(res.message);
+        setTimeout(() => setActionSuccess(null), 5000);
+      }
+      await loadSyncStatus();
+      await loadItems();
+    } catch (err: unknown) {
+      setSyncError(err instanceof Error ? err.message : 'Classroom sync failed');
+    } finally {
+      setSyncingClassroom(false);
     }
   };
 
@@ -566,6 +588,14 @@ export default function App() {
             {syncing ? '⏳ Syncing Gmail...' : '📥 Sync Gmail now'}
           </button>
           <button
+            className="btn btn-classroom"
+            onClick={handleSyncClassroom}
+            disabled={syncingClassroom}
+            title="Fetch active coursework and announcements from Google Classroom"
+          >
+            {syncingClassroom ? '⏳ Syncing Classroom...' : '📥 Sync Classroom now'}
+          </button>
+          <button
             className="btn btn-outline"
             onClick={handleReanalyzeAll}
             disabled={reanalyzingAll}
@@ -587,7 +617,7 @@ export default function App() {
         </div>
       </section>
 
-      {/* Gmail Sync Error & Status Info */}
+      {/* Gmail Reconnect Needed Banner */}
       {syncStatus?.status === 'reconnect_needed' && (
         <div className="reconnect-banner">
           <div className="reconnect-header">
@@ -595,18 +625,33 @@ export default function App() {
             <strong>Gmail Reconnect Needed:</strong> Authorization token is missing, expired, or revoked.
           </div>
           <div className="reconnect-body">
-            <span>Automatic background sync is paused. To re-authorize, execute this command in your terminal:</span>
+            <span>Automatic background sync for Gmail is paused. To re-authorize, execute this command in your terminal:</span>
             <br />
             <code className="reconnect-code">{syncStatus.reconnect_command || 'python -m app.integrations.google_auth gmail'}</code>
           </div>
         </div>
       )}
 
-      {syncError && syncStatus?.status !== 'reconnect_needed' && (
+      {/* Classroom Reconnect Needed Banner */}
+      {syncStatus?.classroom_status === 'reconnect_needed' && (
+        <div className="reconnect-banner">
+          <div className="reconnect-header">
+            <span className="reconnect-icon">⚠️</span>
+            <strong>Google Classroom Reconnect Needed:</strong> Authorization token is missing, expired, or revoked.
+          </div>
+          <div className="reconnect-body">
+            <span>To authorize Google Classroom, execute this command in your terminal:</span>
+            <br />
+            <code className="reconnect-code">{syncStatus.classroom_reconnect_command || 'python -m app.integrations.google_auth classroom'}</code>
+          </div>
+        </div>
+      )}
+
+      {syncError && syncStatus?.status !== 'reconnect_needed' && syncStatus?.classroom_status !== 'reconnect_needed' && (
         <div className="sync-error-banner">
           <span className="sync-error-icon">⚠️</span>
           <div className="sync-error-content">
-            <strong>Gmail Sync Note:</strong> {syncError}
+            <strong>Sync Note:</strong> {syncError}
           </div>
           <button className="alert-close" onClick={() => setSyncError(null)}>
             ×
@@ -637,6 +682,24 @@ export default function App() {
             Fetched: {syncStatus.counts.fetched} | Created: {syncStatus.counts.created} | Updated:{' '}
             {syncStatus.counts.updated} | Skipped: {syncStatus.counts.skipped}
             {syncStatus.counts.errors > 0 ? ` | Errors: ${syncStatus.counts.errors}` : ''}
+          </span>
+        </div>
+      )}
+
+      {syncStatus && syncStatus.classroom_last_synced_at && (
+        <div className="sync-info-bar" style={{ marginTop: '0.4rem' }}>
+          <div>
+            <strong>Classroom Sync:</strong> Last run at {formatDateTimeWithTz(syncStatus.classroom_last_synced_at)}
+            {syncStatus.classroom_status === 'reconnect_needed' ? (
+              <span className="badge badge-warning" style={{ marginLeft: '8px' }}>
+                Reconnect needed
+              </span>
+            ) : null}
+          </div>
+          <span>
+            Courses: {syncStatus.classroom_counts?.courses || 0} | Created: {syncStatus.classroom_counts?.created || 0} | Updated:{' '}
+            {syncStatus.classroom_counts?.updated || 0} | Skipped: {syncStatus.classroom_counts?.skipped || 0}
+            {syncStatus.classroom_counts && syncStatus.classroom_counts.errors > 0 ? ` | Errors: ${syncStatus.classroom_counts.errors}` : ''}
           </span>
         </div>
       )}
@@ -768,6 +831,16 @@ export default function App() {
                       {item.source_type === 'gmail' && (
                         <span className="badge badge-gmail" title="Imported from Gmail">
                           ✉️ Gmail
+                        </span>
+                      )}
+                      {item.source_type === 'classroom' && (
+                        <span className="badge badge-classroom" title="Imported from Google Classroom">
+                          🏫 Classroom
+                        </span>
+                      )}
+                      {item.source_status === 'TURNED_IN' && (
+                        <span className="badge badge-turned-in" title="Turned in per Google Classroom">
+                          ✓ Turned in per Classroom
                         </span>
                       )}
                       {item.is_demo && <span className="badge badge-demo">DEMO</span>}
@@ -1089,6 +1162,26 @@ export default function App() {
                       >
                         ✉️ Open in Gmail ↗
                       </a>
+                    </span>
+                  )}
+                  {selectedItem.source_type === 'classroom' && selectedItem.links && selectedItem.links.length > 0 && (
+                    <span>
+                      <a
+                        href={selectedItem.links[0]}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="source-link"
+                      >
+                        🏫 Open in Classroom ↗
+                      </a>
+                    </span>
+                  )}
+                  {selectedItem.source_status && (
+                    <span>
+                      <strong>Classroom Status:</strong>{' '}
+                      <span className={`badge ${selectedItem.source_status === 'TURNED_IN' ? 'badge-turned-in' : 'badge-state'}`}>
+                        {selectedItem.source_status === 'TURNED_IN' ? '✓ Turned in per Classroom' : selectedItem.source_status}
+                      </span>
                     </span>
                   )}
                   {selectedItem.sender && (
