@@ -85,6 +85,7 @@ export default function App() {
   const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
   const [syncing, setSyncing] = useState<boolean>(false);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [togglingSync, setTogglingSync] = useState<boolean>(false);
 
   // Re-analyze state
   const [reanalyzingAll, setReanalyzingAll] = useState<boolean>(false);
@@ -136,6 +137,24 @@ export default function App() {
     }
   };
 
+  // Toggle Auto-sync Runtime Setting
+  const handleToggleAutoSync = async () => {
+    if (!syncStatus) return;
+    setTogglingSync(true);
+    try {
+      setErrorMessage(null);
+      const nextVal = !syncStatus.auto_sync_enabled;
+      const updated = await api.updateSyncSettings(nextVal);
+      setSyncStatus(updated);
+      setActionSuccess(nextVal ? 'Auto-sync resumed' : 'Auto-sync paused');
+      setTimeout(() => setActionSuccess(null), 3000);
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to update auto-sync settings');
+    } finally {
+      setTogglingSync(false);
+    }
+  };
+
   // Load items
   const loadItems = async () => {
     setLoading(true);
@@ -155,6 +174,11 @@ export default function App() {
     checkHealth();
     loadItems();
     loadSyncStatus();
+
+    const interval = setInterval(() => {
+      loadSyncStatus();
+    }, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   const hasDemoItems = useMemo(() => items.some((i) => i.is_demo), [items]);
@@ -454,6 +478,52 @@ export default function App() {
               <span>Backend Offline</span>
             </div>
           )}
+
+          {/* Background Auto-sync Status & Toggle */}
+          {syncStatus && (
+            <>
+              {syncStatus.status === 'reconnect_needed' ? (
+                <div className="health-pill warning" title="Gmail authorization expired or missing">
+                  <span className="dot dot-warning"></span>
+                  <span>⚠️ Reconnect needed</span>
+                </div>
+              ) : syncStatus.auto_sync_enabled ? (
+                <div
+                  className="health-pill success"
+                  title={
+                    syncStatus.next_run_at
+                      ? `Next sync: ${formatDateTimeWithTz(syncStatus.next_run_at)}`
+                      : 'Auto-sync active'
+                  }
+                >
+                  <span className="dot dot-success"></span>
+                  <span>Auto-sync every {syncStatus.interval_minutes} min</span>
+                </div>
+              ) : (
+                <div className="health-pill neutral" title="Background auto-sync is currently paused">
+                  <span className="dot dot-neutral"></span>
+                  <span>Auto-sync paused</span>
+                </div>
+              )}
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={handleToggleAutoSync}
+                disabled={togglingSync}
+                title={
+                  syncStatus.auto_sync_enabled
+                    ? 'Pause background synchronization'
+                    : 'Resume background synchronization'
+                }
+              >
+                {togglingSync
+                  ? 'Updating...'
+                  : syncStatus.auto_sync_enabled
+                  ? 'Pause Auto-sync'
+                  : 'Enable Auto-sync'}
+              </button>
+            </>
+          )}
+
           <button className="btn btn-secondary btn-sm" onClick={checkHealth}>
             Check Health
           </button>
@@ -518,7 +588,21 @@ export default function App() {
       </section>
 
       {/* Gmail Sync Error & Status Info */}
-      {syncError && (
+      {syncStatus?.status === 'reconnect_needed' && (
+        <div className="reconnect-banner">
+          <div className="reconnect-header">
+            <span className="reconnect-icon">⚠️</span>
+            <strong>Gmail Reconnect Needed:</strong> Authorization token is missing, expired, or revoked.
+          </div>
+          <div className="reconnect-body">
+            <span>Automatic background sync is paused. To re-authorize, execute this command in your terminal:</span>
+            <br />
+            <code className="reconnect-code">{syncStatus.reconnect_command || 'python -m app.integrations.google_auth gmail'}</code>
+          </div>
+        </div>
+      )}
+
+      {syncError && syncStatus?.status !== 'reconnect_needed' && (
         <div className="sync-error-banner">
           <span className="sync-error-icon">⚠️</span>
           <div className="sync-error-content">
@@ -529,13 +613,29 @@ export default function App() {
           </button>
         </div>
       )}
-      {syncStatus && syncStatus.last_synced_at && (
+
+      {syncStatus && (syncStatus.last_synced_at || syncStatus.next_run_at) && (
         <div className="sync-info-bar">
+          <div>
+            <strong>Gmail Sync:</strong>{' '}
+            {syncStatus.last_synced_at
+              ? `Last run at ${formatDateTimeWithTz(syncStatus.last_synced_at)}`
+              : 'Never run'}
+            {syncStatus.next_run_at && syncStatus.auto_sync_enabled && syncStatus.status !== 'reconnect_needed' ? (
+              <span className="next-sync-label">
+                {' '}
+                | Next run at {formatDateTimeWithTz(syncStatus.next_run_at)}
+              </span>
+            ) : null}
+            {syncStatus.status === 'reconnect_needed' ? (
+              <span className="badge badge-warning" style={{ marginLeft: '8px' }}>
+                Reconnect needed
+              </span>
+            ) : null}
+          </div>
           <span>
-            <strong>Gmail Sync:</strong> Last synced at {formatDateTimeWithTz(syncStatus.last_synced_at)}
-          </span>
-          <span>
-            Fetched: {syncStatus.counts.fetched} | Created: {syncStatus.counts.created} | Updated: {syncStatus.counts.updated} | Skipped: {syncStatus.counts.skipped}
+            Fetched: {syncStatus.counts.fetched} | Created: {syncStatus.counts.created} | Updated:{' '}
+            {syncStatus.counts.updated} | Skipped: {syncStatus.counts.skipped}
             {syncStatus.counts.errors > 0 ? ` | Errors: ${syncStatus.counts.errors}` : ''}
           </span>
         </div>

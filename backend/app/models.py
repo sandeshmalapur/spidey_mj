@@ -213,12 +213,22 @@ class SyncCounts(BaseModel):
     errors: int = 0
 
 
+class SyncSettingsUpdate(BaseModel):
+    auto_sync_enabled: bool
+
+
 class SyncStatusResponse(BaseModel):
     source_type: str = "gmail"
     last_synced_at: Optional[str] = None
-    status: str = "idle"
+    next_run_at: Optional[str] = None
+    status: str = "idle"  # "idle", "running", "error", "reconnect_needed"
     counts: SyncCounts = Field(default_factory=SyncCounts)
     error_message: Optional[str] = None
+    auto_sync_enabled: bool = True
+    interval_minutes: int = 5
+    reconnect_command: Optional[str] = None
+    consecutive_errors: int = 0
+    backoff_minutes: Optional[int] = None
 
 
 class SyncResultResponse(BaseModel):

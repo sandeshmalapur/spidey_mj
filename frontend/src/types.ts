@@ -66,13 +66,19 @@ export interface SyncCounts {
 export interface SyncStatus {
   source_type: string;
   last_synced_at: string | null;
-  status: 'idle' | 'success' | 'error' | 'running';
+  next_run_at: string | null;
+  status: 'idle' | 'success' | 'error' | 'running' | 'reconnect_needed';
   counts: SyncCounts;
   error_message: string | null;
+  auto_sync_enabled: boolean;
+  interval_minutes: number;
+  reconnect_command: string | null;
+  consecutive_errors?: number;
+  backoff_minutes?: number | null;
 }
 
 export interface SyncResult {
-  status: 'success' | 'error';
+  status: 'success' | 'error' | 'skipped';
   message: string;
   counts: SyncCounts;
   error_message?: string | null;

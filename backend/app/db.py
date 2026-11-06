@@ -78,6 +78,14 @@ CREATE TABLE IF NOT EXISTS sync_history (
 );
 """
 
+SCHEMA_SETTINGS_SQL = """
+CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+);
+"""
+
 SCHEMA_INDEX_SQL = """
 CREATE UNIQUE INDEX IF NOT EXISTS idx_items_source_unique
 ON items(source_type, source_id)
@@ -163,6 +171,7 @@ def init_db(custom_path: Optional[str] = None) -> str:
 
             conn.executescript(SCHEMA_ITEM_EVENTS_SQL)
             conn.executescript(SCHEMA_SYNC_HISTORY_SQL)
+            conn.executescript(SCHEMA_SETTINGS_SQL)
             conn.executescript(SCHEMA_INDEX_SQL)
     finally:
         conn.close()
@@ -185,3 +194,42 @@ def check_db_health(custom_path: Optional[str] = None) -> bool:
             conn.close()
     except Exception:
         return False
+
+
+def get_setting(key: str, default: Optional[str] = None, conn: Optional[sqlite3.Connection] = None) -> Optional[str]:
+    close_after = False
+    if conn is None:
+        conn = get_connection()
+        close_after = True
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT value FROM settings WHERE key = ?;", (key,))
+        row = cur.fetchone()
+        if row:
+            return row["value"]
+        return default
+    finally:
+        if close_after:
+            conn.close()
+
+
+def set_setting(key: str, value: str, conn: Optional[sqlite3.Connection] = None) -> None:
+    close_after = False
+    if conn is None:
+        conn = get_connection()
+        close_after = True
+    now_iso = utc_now_iso()
+    try:
+        with conn:
+            conn.execute(
+                """
+                INSERT INTO settings (key, value, updated_at)
+                VALUES (?, ?, ?)
+                ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at;
+                """,
+                (key, value, now_iso),
+            )
+    finally:
+        if close_after:
+            conn.close()
+

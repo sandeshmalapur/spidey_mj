@@ -33,6 +33,10 @@ GMAIL_TOKEN_FILE = os.getenv(
 GMAIL_QUERY = os.getenv("GMAIL_QUERY", "newer_than:7d in:inbox")
 GMAIL_MAX_MESSAGES = int(os.getenv("GMAIL_MAX_MESSAGES", "25"))
 
+# Background Sync Scheduler
+SYNC_INTERVAL_MINUTES = int(os.getenv("SYNC_INTERVAL_MINUTES", "5"))
+SYNC_ENABLED = os.getenv("SYNC_ENABLED", "true").lower() in ("true", "1", "yes")
+
 _raw_origins = os.getenv("FRONTEND_ORIGIN", "http://localhost:5173,http://127.0.0.1:5173")
 ALLOWED_ORIGINS = [
     origin.strip()

@@ -133,6 +133,12 @@ export const api = {
 
   getSyncStatus: () => request<SyncStatus>('/api/sync/status'),
 
+  updateSyncSettings: (auto_sync_enabled: boolean) =>
+    request<SyncStatus>('/api/sync/settings', {
+      method: 'POST',
+      body: JSON.stringify({ auto_sync_enabled }),
+    }),
+
   reanalyzeItem: (id: number) =>
     request<Item>(`/api/items/${id}/reanalyze`, { method: 'POST' }),
 

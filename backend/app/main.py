@@ -26,10 +26,12 @@ from app.models import (
     SnoozeRequest,
     SourceType,
     SyncResultResponse,
+    SyncSettingsUpdate,
     SyncStatusResponse,
 )
 from app.priority import recompute_priority
 from app.integrations.sync_service import get_sync_status, sync_gmail
+from app.scheduler import sync_scheduler
 
 
 class HealthResponse(BaseModel):
@@ -54,7 +56,9 @@ class IngestResponse(BaseModel):
 async def lifespan(app: FastAPI):
     # Initialize the SQLite schema on startup
     init_db()
+    sync_scheduler.start()
     yield
+    sync_scheduler.shutdown()
 
 
 app = FastAPI(
@@ -603,20 +607,24 @@ def delete_demo():
 
 @app.post("/api/sync/gmail", response_model=SyncResultResponse)
 def sync_gmail_endpoint() -> SyncResultResponse:
-    conn = get_connection()
-    try:
-        return sync_gmail(conn=conn)
-    finally:
-        conn.close()
+    res = sync_scheduler.run_sync(is_manual=True)
+    if res is None:
+        return SyncResultResponse(
+            status="skipped",
+            message="Sync already in progress. Please wait for the current run to finish.",
+            counts=SyncCounts(),
+        )
+    return res
 
 
 @app.get("/api/sync/status", response_model=SyncStatusResponse)
 def get_sync_status_endpoint() -> SyncStatusResponse:
-    conn = get_connection()
-    try:
-        return get_sync_status(conn=conn)
-    finally:
-        conn.close()
+    return sync_scheduler.get_status()
+
+
+@app.post("/api/sync/settings", response_model=SyncStatusResponse)
+def update_sync_settings_endpoint(payload: SyncSettingsUpdate) -> SyncStatusResponse:
+    return sync_scheduler.set_enabled(payload.auto_sync_enabled)
 
 
 def _reanalyze_item_logic(
