@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS items (
     links TEXT NOT NULL DEFAULT '[]',
     source_type TEXT NOT NULL DEFAULT 'manual',
     source_id TEXT,
+    thread_id TEXT,
     source_title TEXT,
     sender TEXT,
     received_at TEXT,
@@ -47,10 +48,42 @@ CREATE TABLE IF NOT EXISTS items (
 );
 """
 
+SCHEMA_ITEM_EVENTS_SQL = """
+CREATE TABLE IF NOT EXISTS item_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_id INTEGER NOT NULL,
+    at TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    old_value TEXT,
+    new_value TEXT,
+    source_id TEXT,
+    FOREIGN KEY(item_id) REFERENCES items(id) ON DELETE CASCADE
+);
+"""
+
+SCHEMA_SYNC_HISTORY_SQL = """
+CREATE TABLE IF NOT EXISTS sync_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_type TEXT NOT NULL,
+    started_at TEXT NOT NULL,
+    completed_at TEXT,
+    status TEXT NOT NULL,
+    fetched INTEGER NOT NULL DEFAULT 0,
+    created INTEGER NOT NULL DEFAULT 0,
+    updated INTEGER NOT NULL DEFAULT 0,
+    skipped INTEGER NOT NULL DEFAULT 0,
+    errors INTEGER NOT NULL DEFAULT 0,
+    error_message TEXT
+);
+"""
+
 SCHEMA_INDEX_SQL = """
 CREATE UNIQUE INDEX IF NOT EXISTS idx_items_source_unique
 ON items(source_type, source_id)
 WHERE source_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_items_thread_id ON items(thread_id);
+CREATE INDEX IF NOT EXISTS idx_item_events_item_id ON item_events(item_id);
 """
 
 
@@ -108,6 +141,7 @@ def init_db(custom_path: Optional[str] = None) -> str:
                             ("deadline_at", "TEXT"),
                             ("deadline_status", "TEXT NOT NULL DEFAULT 'none'"),
                             ("links", "TEXT NOT NULL DEFAULT '[]'"),
+                            ("thread_id", "TEXT"),
                             ("source_title", "TEXT"),
                             ("sender", "TEXT"),
                             ("received_at", "TEXT"),
@@ -118,9 +152,14 @@ def init_db(custom_path: Optional[str] = None) -> str:
                         for col_name, col_def in additive_cols:
                             if col_name not in existing_cols:
                                 conn.execute(f"ALTER TABLE items ADD COLUMN {col_name} {col_def};")
+                else:
+                    if "thread_id" not in existing_cols:
+                        conn.execute("ALTER TABLE items ADD COLUMN thread_id TEXT;")
             else:
                 conn.executescript(SCHEMA_ITEMS_SQL)
 
+            conn.executescript(SCHEMA_ITEM_EVENTS_SQL)
+            conn.executescript(SCHEMA_SYNC_HISTORY_SQL)
             conn.executescript(SCHEMA_INDEX_SQL)
     finally:
         conn.close()

@@ -23,8 +23,11 @@ from app.models import (
     Priority,
     SnoozeRequest,
     SourceType,
+    SyncResultResponse,
+    SyncStatusResponse,
 )
 from app.priority import recompute_priority
+from app.integrations.sync_service import get_sync_status, sync_gmail
 
 
 class HealthResponse(BaseModel):
@@ -206,12 +209,12 @@ def create_item(payload: ItemCreate) -> ItemResponse:
                 INSERT INTO items (
                     title, item_type, kind, summary, priority, priority_reason, priority_override,
                     extraction_confidence, state, deadline_text, deadline_at, deadline_status,
-                    links, source_type, source_id, source_title, sender, received_at, evidence,
+                    links, source_type, source_id, thread_id, source_title, sender, received_at, evidence,
                     is_demo, created_at, updated_at
                 ) VALUES (
                     ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?
                 );
                 """,
@@ -231,6 +234,7 @@ def create_item(payload: ItemCreate) -> ItemResponse:
                     links_json,
                     payload.source_type.value,
                     payload.source_id,
+                    payload.thread_id,
                     payload.source_title,
                     payload.sender,
                     payload.received_at,
@@ -577,5 +581,23 @@ def delete_demo():
         cur.execute("DELETE FROM items WHERE is_demo = 1;")
         conn.commit()
         return {"status": "ok", "deleted": count}
+    finally:
+        conn.close()
+
+
+@app.post("/api/sync/gmail", response_model=SyncResultResponse)
+def sync_gmail_endpoint() -> SyncResultResponse:
+    conn = get_connection()
+    try:
+        return sync_gmail(conn=conn)
+    finally:
+        conn.close()
+
+
+@app.get("/api/sync/status", response_model=SyncStatusResponse)
+def get_sync_status_endpoint() -> SyncStatusResponse:
+    conn = get_connection()
+    try:
+        return get_sync_status(conn=conn)
     finally:
         conn.close()

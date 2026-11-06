@@ -6,6 +6,8 @@ import type {
   ItemState,
   ItemType,
   Priority,
+  SyncResult,
+  SyncStatus,
 } from './types';
 
 const API_BASE_URL =
@@ -123,4 +125,11 @@ export const api = {
     request<{ status: string; deleted: number }>('/api/demo', {
       method: 'DELETE',
     }),
+
+  syncGmail: () =>
+    request<SyncResult>('/api/sync/gmail', {
+      method: 'POST',
+    }),
+
+  getSyncStatus: () => request<SyncStatus>('/api/sync/status'),
 };

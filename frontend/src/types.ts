@@ -44,6 +44,7 @@ export interface Item {
   links: string[];
   source_type: SourceType;
   source_id: string | null;
+  thread_id?: string | null;
   source_title: string | null;
   sender: string | null;
   received_at: string | null;
@@ -52,6 +53,29 @@ export interface Item {
   created_at: string;
   updated_at: string;
   completed_at: string | null;
+}
+
+export interface SyncCounts {
+  fetched: number;
+  created: number;
+  updated: number;
+  skipped: number;
+  errors: number;
+}
+
+export interface SyncStatus {
+  source_type: string;
+  last_synced_at: string | null;
+  status: 'idle' | 'success' | 'error' | 'running';
+  counts: SyncCounts;
+  error_message: string | null;
+}
+
+export interface SyncResult {
+  status: 'success' | 'error';
+  message: string;
+  counts: SyncCounts;
+  error_message?: string | null;
 }
 
 export interface HealthResponse {

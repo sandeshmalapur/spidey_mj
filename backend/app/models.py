@@ -65,6 +65,7 @@ class ItemCreate(BaseModel):
     links: List[str] = Field(default_factory=list)
     source_type: SourceType = SourceType.MANUAL
     source_id: Optional[str] = None
+    thread_id: Optional[str] = None
     source_title: Optional[str] = None
     sender: Optional[str] = None
     received_at: Optional[str] = None
@@ -119,6 +120,7 @@ class ItemResponse(BaseModel):
     links: List[str] = Field(default_factory=list)
     source_type: SourceType
     source_id: Optional[str] = None
+    thread_id: Optional[str] = None
     source_title: Optional[str] = None
     sender: Optional[str] = None
     received_at: Optional[str] = None
@@ -165,6 +167,7 @@ class ItemResponse(BaseModel):
             links=links_list,
             source_type=row["source_type"],
             source_id=row.get("source_id"),
+            thread_id=row.get("thread_id"),
             source_title=row.get("source_title"),
             sender=row.get("sender"),
             received_at=row.get("received_at"),
@@ -174,4 +177,27 @@ class ItemResponse(BaseModel):
             updated_at=row["updated_at"],
             completed_at=row.get("completed_at"),
         )
+
+
+class SyncCounts(BaseModel):
+    fetched: int = 0
+    created: int = 0
+    updated: int = 0
+    skipped: int = 0
+    errors: int = 0
+
+
+class SyncStatusResponse(BaseModel):
+    source_type: str = "gmail"
+    last_synced_at: Optional[str] = None
+    status: str = "idle"
+    counts: SyncCounts = Field(default_factory=SyncCounts)
+    error_message: Optional[str] = None
+
+
+class SyncResultResponse(BaseModel):
+    status: str
+    message: str
+    counts: SyncCounts
+    error_message: Optional[str] = None
 

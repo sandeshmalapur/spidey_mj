@@ -8,6 +8,7 @@ import type {
   ItemType,
   ItemUpdateParams,
   Priority,
+  SyncStatus,
 } from './types';
 import './App.css';
 
@@ -80,6 +81,11 @@ export default function App() {
   const [pasteEvidence, setPasteEvidence] = useState('');
   const [pasteSubmitting, setPasteSubmitting] = useState(false);
 
+  // Gmail sync state
+  const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
+  const [syncing, setSyncing] = useState<boolean>(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+
   // Check health
   const checkHealth = async () => {
     try {
@@ -89,6 +95,40 @@ export default function App() {
     } catch (err: unknown) {
       setHealth(null);
       setHealthError(err instanceof Error ? err.message : 'Backend unavailable');
+    }
+  };
+
+  // Load sync status
+  const loadSyncStatus = async () => {
+    try {
+      const s = await api.getSyncStatus();
+      setSyncStatus(s);
+      if (s.status === 'error' && s.error_message) {
+        setSyncError(s.error_message);
+      }
+    } catch {
+      // Ignore initial sync status check error
+    }
+  };
+
+  // Trigger Gmail Sync
+  const handleSyncGmail = async () => {
+    setSyncing(true);
+    setSyncError(null);
+    try {
+      const res = await api.syncGmail();
+      if (res.status === 'error') {
+        setSyncError(res.error_message || res.message);
+      } else {
+        setActionSuccess(res.message);
+        setTimeout(() => setActionSuccess(null), 5000);
+      }
+      await loadSyncStatus();
+      await loadItems();
+    } catch (err: unknown) {
+      setSyncError(err instanceof Error ? err.message : 'Gmail sync failed');
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -110,6 +150,7 @@ export default function App() {
   useEffect(() => {
     checkHealth();
     loadItems();
+    loadSyncStatus();
   }, []);
 
   const hasDemoItems = useMemo(() => items.some((i) => i.is_demo), [items]);
@@ -405,6 +446,14 @@ export default function App() {
           <button className="btn btn-primary" onClick={() => setShowPasteModal(true)}>
             + Paste Email / Text
           </button>
+          <button
+            className="btn btn-gmail"
+            onClick={handleSyncGmail}
+            disabled={syncing}
+            title="Fetch recent messages from your Gmail inbox"
+          >
+            {syncing ? '⏳ Syncing Gmail...' : '📥 Sync Gmail now'}
+          </button>
         </div>
         <div className="toolbar-right">
           <button className="btn btn-outline" onClick={handleSeedDemo}>
@@ -418,6 +467,30 @@ export default function App() {
           </button>
         </div>
       </section>
+
+      {/* Gmail Sync Error & Status Info */}
+      {syncError && (
+        <div className="sync-error-banner">
+          <span className="sync-error-icon">⚠️</span>
+          <div className="sync-error-content">
+            <strong>Gmail Sync Note:</strong> {syncError}
+          </div>
+          <button className="alert-close" onClick={() => setSyncError(null)}>
+            ×
+          </button>
+        </div>
+      )}
+      {syncStatus && syncStatus.last_synced_at && (
+        <div className="sync-info-bar">
+          <span>
+            <strong>Gmail Sync:</strong> Last synced at {formatDateTimeWithTz(syncStatus.last_synced_at)}
+          </span>
+          <span>
+            Fetched: {syncStatus.counts.fetched} | Created: {syncStatus.counts.created} | Updated: {syncStatus.counts.updated} | Skipped: {syncStatus.counts.skipped}
+            {syncStatus.counts.errors > 0 ? ` | Errors: ${syncStatus.counts.errors}` : ''}
+          </span>
+        </div>
+      )}
 
       {/* Primary Priority Filter Tabs */}
       <nav className="filter-tabs" aria-label="Priority Tabs">
@@ -543,6 +616,11 @@ export default function App() {
                       )}
                       <span className="badge badge-kind">{formatKind(item.kind)}</span>
                       <span className="badge badge-state">{item.state.replace('_', ' ')}</span>
+                      {item.source_type === 'gmail' && (
+                        <span className="badge badge-gmail" title="Imported from Gmail">
+                          ✉️ Gmail
+                        </span>
+                      )}
                       {item.is_demo && <span className="badge badge-demo">DEMO</span>}
                       {item.acknowledged_at && (
                         <span className="badge badge-ack">✓ Acknowledged</span>
@@ -579,9 +657,22 @@ export default function App() {
                       )}
                     </div>
 
-                    {item.source_title && (
-                      <span className="card-source">{item.source_title}</span>
-                    )}
+                    <div className="card-source-area" onClick={(e) => e.stopPropagation()}>
+                      {item.source_type === 'gmail' && item.source_id && (
+                        <a
+                          href={`https://mail.google.com/mail/u/0/#inbox/${item.source_id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="gmail-source-link"
+                          title="Open original message in Gmail"
+                        >
+                          ✉️ View in Gmail ↗
+                        </a>
+                      )}
+                      {item.source_title && (
+                        <span className="card-source">{item.source_title}</span>
+                      )}
+                    </div>
                   </div>
                 </article>
               );
@@ -826,9 +917,22 @@ export default function App() {
                 <h4>Source Evidence</h4>
                 <div className="evidence-meta">
                   <span>
-                    <strong>Source:</strong> {selectedItem.source_type}{' '}
+                    <strong>Source:</strong> {selectedItem.source_type.toUpperCase()}{' '}
                     {selectedItem.source_title ? `(${selectedItem.source_title})` : ''}
+                    {selectedItem.is_demo ? ' [DEMO]' : ''}
                   </span>
+                  {selectedItem.source_type === 'gmail' && selectedItem.source_id && (
+                    <span>
+                      <a
+                        href={`https://mail.google.com/mail/u/0/#inbox/${selectedItem.source_id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="gmail-source-link"
+                      >
+                        ✉️ Open in Gmail ↗
+                      </a>
+                    </span>
+                  )}
                   {selectedItem.sender && (
                     <span>
                       <strong>Sender:</strong> {selectedItem.sender}

@@ -14,11 +14,23 @@ DEFAULT_DB_PATH = str(Path(__file__).resolve().parent.parent / "data" / "classma
 
 DATABASE_PATH = os.getenv("DATABASE_PATH", DEFAULT_DB_PATH)
 TIMEZONE = os.getenv("TIMEZONE", "UTC")
-APP_VERSION = "0.4.0"
+APP_VERSION = "0.5.0"
 
 # Priority engine demo defaults
 URGENT_WITHIN_HOURS = int(os.getenv("URGENT_WITHIN_HOURS", "48"))  # demo default
 IMPORTANT_WITHIN_DAYS = int(os.getenv("IMPORTANT_WITHIN_DAYS", "14"))  # demo default
+
+# Google / Gmail Integration
+GOOGLE_CLIENT_FILE = os.getenv(
+    "GOOGLE_CLIENT_FILE",
+    str(Path(__file__).resolve().parent.parent / "secrets" / "google_client.json"),
+)
+GMAIL_TOKEN_FILE = os.getenv(
+    "GMAIL_TOKEN_FILE",
+    str(Path(__file__).resolve().parent.parent / "secrets" / "token_gmail.json"),
+)
+GMAIL_QUERY = os.getenv("GMAIL_QUERY", "newer_than:7d in:inbox")
+GMAIL_MAX_MESSAGES = int(os.getenv("GMAIL_MAX_MESSAGES", "25"))
 
 _raw_origins = os.getenv("FRONTEND_ORIGIN", "http://localhost:5173,http://127.0.0.1:5173")
 ALLOWED_ORIGINS = [
