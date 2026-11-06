@@ -106,6 +106,68 @@ def test_rules_extraction_table(text, subject, expected_status, expected_type, e
         assert res.deadline_at is None
 
 
+# Table-driven extraction bug fix tests
+@pytest.mark.parametrize(
+    "text,subject,expected_deadline_text,expected_status,expected_utc",
+    [
+        # Exact example: date/time phrase only, confirmed UTC value unchanged
+        (
+            "Please submit by November 9, 2026 at 5:00 PM IST via https://example.com/lab3.",
+            "Lab report 3",
+            "November 9, 2026 at 5:00 PM IST",
+            DeadlineStatus.CONFIRMED,
+            "2026-11-09T11:30:00Z",
+        ),
+        # URL immediately after the date
+        (
+            "Please submit by November 9, 2026 at 5:00 PM ISThttps://example.com/lab3",
+            "Lab report 3",
+            "November 9, 2026 at 5:00 PM IST",
+            DeadlineStatus.CONFIRMED,
+            "2026-11-09T11:30:00Z",
+        ),
+        # Vague phrase: "sometime next week"
+        (
+            "Meeting sometime next week to discuss the project.",
+            "Quick sync",
+            "sometime next week",
+            DeadlineStatus.AMBIGUOUS,
+            None,
+        ),
+        # No date at all: deadline_text null, status none (even when word "deadline" appears)
+        (
+            "Please review the syllabus. We have a strict deadline policy for all students.",
+            "Course Policy",
+            None,
+            DeadlineStatus.NONE,
+            None,
+        ),
+        # Bare word "deadline" must never be stored as deadline_text
+        (
+            "Important note regarding upcoming deadline.",
+            "Notice",
+            None,
+            DeadlineStatus.NONE,
+            None,
+        ),
+    ],
+)
+def test_deadline_extraction_bugs_table(text, subject, expected_deadline_text, expected_status, expected_utc):
+    provider = RulesProvider()
+    res = provider.extract(
+        text=text,
+        subject=subject,
+        received_at=FIXED_NOW,
+        now=FIXED_NOW,
+    )
+    assert res.deadline_text == expected_deadline_text
+    assert res.deadline_status == expected_status
+    if expected_utc:
+        assert res.deadline_at == expected_utc
+    else:
+        assert res.deadline_at is None
+
+
 # Table-driven priority engine tests
 @pytest.mark.parametrize(
     "item_dict,expected_priority,reason_substring",

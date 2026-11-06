@@ -201,19 +201,30 @@ class RulesProvider(ExtractionProvider):
         # e.g. "Due Friday, Nov 13, 2026 at 11:59 PM EST"
         # e.g. "Submit by November 20, 2026 at 5:00 PM UTC"
         confirmed_pattern = re.compile(
-            r"(?:due|deadline|by|before|at)?\s*"
-            r"(?:([A-Za-z]+),\s*)?"  # Weekday
-            r"(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)"  # Month
-            r"\s+(\d{1,2})"  # Day
-            r"(?:st|nd|rd|th)?,\s*(\d{4})"  # Year
-            r"\s+(?:at\s+)?(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM|am|pm)?"  # Time
-            r"\s+([A-Z]{2,4}|[+-]\d{2}:?\d{2}|Z)",  # Zone
+            r"(?:(?:due|deadline|by|before|at)\s+)?"
+            r"(?P<phrase>"
+            r"(?:[A-Za-z]+,\s*)?"  # Optional weekday
+            r"(?P<month>Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)"  # Month
+            r"\s+(?P<day>\d{1,2})"  # Day
+            r"(?:st|nd|rd|th)?,\s*(?P<year>\d{4})"  # Year
+            r"\s+(?:at\s+)?(?P<hour>\d{1,2}):(?P<minute>\d{2})(?::(?P<second>\d{2}))?\s*(?P<ampm>AM|PM|am|pm)?"  # Time
+            r"\s+(?P<zone>[A-Z]{2,4}|[+-]\d{2}:?\d{2}|Z)"  # Zone
+            r")"
+            r"(?:\b|(?=https?://)|$)",
             re.I,
         )
 
         match = confirmed_pattern.search(text)
         if match:
-            weekday, month_str, day_str, year_str, hour_str, min_str, sec_str, ampm_str, zone_str = match.groups()
+            month_str = match.group("month")
+            day_str = match.group("day")
+            year_str = match.group("year")
+            hour_str = match.group("hour")
+            min_str = match.group("minute")
+            sec_str = match.group("second")
+            ampm_str = match.group("ampm")
+            zone_str = match.group("zone")
+
             month = MONTH_MAP.get(month_str.lower(), 1)
             day = int(day_str)
             year = int(year_str)
@@ -246,10 +257,8 @@ class RulesProvider(ExtractionProvider):
                     dt_utc = dt_local.astimezone(timezone.utc)
                     utc_iso = dt_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
 
-                    # Extract the verbatim deadline phrase
-                    start_idx = max(0, match.start() - 15)
-                    end_idx = min(len(text), match.end() + 5)
-                    snippet = text[start_idx:end_idx].strip()
+                    # Extract only the exact date/time phrase
+                    snippet = match.group("phrase").strip().rstrip(".,;:!?)>}\"']")
                     reasons.append(f"Found confirmed calendar deadline with explicit time and timezone ({zone_str}).")
                     return snippet, utc_iso, DeadlineStatus.CONFIRMED, reasons
                 except ValueError:
@@ -261,22 +270,20 @@ class RulesProvider(ExtractionProvider):
             r"(?:due|deadline|by|before)\s+(?:next\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday)(?:\s+\d{1,2}(?:st|nd|rd|th)?|\s+at\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?)?",
             r"(?:due|deadline|by|before)\s+(today|tomorrow|tonight|this\s+weekend|next\s+week|early\s+next\s+week)",
             r"(?:within\s+\d+\s+(?:hours?|days?|weeks?))",
-            r"(?:sometime\s+early\s+next\s+week(?:[^\n.]+)?)"
+            r"\b(sometime\s+(?:early\s+|late\s+)?next\s+week)\b",
         ]
 
         for p in ambiguous_patterns:
             amb_match = re.search(p, text, re.I)
             if amb_match:
-                phrase = amb_match.group(0).strip()
-                reasons.append(f"Deadline phrase found ('{phrase}') but lacks explicit time or timezone; flagged as ambiguous.")
-                return phrase, None, DeadlineStatus.AMBIGUOUS, reasons
-
-        # General "due" or "deadline" word presence without date
-        gen_match = re.search(r"\b(due|deadline|reply\s+by|submit\s+by|rsvp\s+by)\b[^\n.]{0,40}", text, re.I)
-        if gen_match:
-            phrase = gen_match.group(0).strip()
-            reasons.append(f"Action timeframe found ('{phrase}') but missing specific calendar date and timezone.")
-            return phrase, None, DeadlineStatus.AMBIGUOUS, reasons
+                if p.startswith(r"\b(sometime"):
+                    phrase = amb_match.group(1).strip()
+                else:
+                    phrase = amb_match.group(0).strip()
+                phrase = phrase.rstrip(".,;:!?)>}\"']")
+                if phrase.lower() not in {"deadline", "due", "by", "before", "at", "none", "null"}:
+                    reasons.append(f"Deadline phrase found ('{phrase}') but lacks explicit time or timezone; flagged as ambiguous.")
+                    return phrase, None, DeadlineStatus.AMBIGUOUS, reasons
 
         return None, None, DeadlineStatus.NONE, reasons
 

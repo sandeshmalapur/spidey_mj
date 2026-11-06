@@ -340,10 +340,13 @@ export default function App() {
   const formatDeadline = (item: Item) => {
     if (item.deadline_status === 'confirmed' && item.deadline_at) {
       const formatted = formatDateTimeWithTz(item.deadline_at);
-      return item.deadline_text ? `${item.deadline_text} (${formatted})` : formatted;
+      return item.deadline_text && item.deadline_text.trim()
+        ? `${item.deadline_text.trim()} (${formatted})`
+        : formatted;
     }
-    if (item.deadline_text) {
-      return item.deadline_text;
+    const cleanText = item.deadline_text?.trim();
+    if (cleanText && cleanText.toLowerCase() !== 'deadline') {
+      return cleanText;
     }
     return 'No deadline';
   };
@@ -757,7 +760,12 @@ export default function App() {
                     </p>
                   )}
                   <p>
-                    <strong>Deadline Text:</strong> {selectedItem.deadline_text || 'None'}
+                    <strong>Deadline Text:</strong>{' '}
+                    {selectedItem.deadline_text &&
+                    selectedItem.deadline_text.trim() &&
+                    selectedItem.deadline_text.trim().toLowerCase() !== 'deadline'
+                      ? selectedItem.deadline_text.trim()
+                      : 'No deadline'}
                   </p>
                   <p>
                     <strong>Deadline Status:</strong> {selectedItem.deadline_status}
