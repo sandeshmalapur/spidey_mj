@@ -41,6 +41,9 @@ classmail-j/
 
 ### 1. Backend Setup & Run
 
+Configuration notes:
+- `DEFAULT_IST_MEANING`: Specifies the timezone resolution for the ambiguous abbreviation `IST` (defaults to `Asia/Kolkata` for India Standard Time; can be set to `Europe/Dublin` or `Asia/Jerusalem`).
+
 In PowerShell, navigate to the `backend` directory:
 
 ```powershell

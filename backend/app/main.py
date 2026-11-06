@@ -21,6 +21,8 @@ from app.models import (
     ItemType,
     ItemUpdate,
     Priority,
+    ReanalyzeCounts,
+    ReanalyzeResultResponse,
     SnoozeRequest,
     SourceType,
     SyncResultResponse,
@@ -362,6 +364,17 @@ def patch_item(item_id: int, payload: ItemUpdate) -> ItemResponse:
         if not update_data:
             return ItemResponse.from_row(existing)
 
+        # Track user edits in user_edited_fields JSON column
+        raw_edited = existing.get("user_edited_fields")
+        try:
+            existing_edited_list = json.loads(raw_edited) if raw_edited else []
+        except Exception:
+            existing_edited_list = []
+
+        new_edited_set = set(existing_edited_list)
+        for k in update_data.keys():
+            new_edited_set.add(k)
+
         fields: List[str] = []
         values: List[Any] = []
 
@@ -373,6 +386,9 @@ def patch_item(item_id: int, payload: ItemUpdate) -> ItemResponse:
                 values.append(v.value)
             else:
                 values.append(v)
+
+        fields.append("user_edited_fields = ?")
+        values.append(json.dumps(list(new_edited_set)))
 
         fields.append("updated_at = ?")
         values.append(utc_now_iso())
@@ -599,5 +615,161 @@ def get_sync_status_endpoint() -> SyncStatusResponse:
     conn = get_connection()
     try:
         return get_sync_status(conn=conn)
+    finally:
+        conn.close()
+
+
+def _reanalyze_item_logic(
+    conn: sqlite3.Connection,
+    item_dict: dict[str, Any],
+    provider: RulesProvider,
+    now_dt: datetime,
+) -> Tuple[dict[str, Any], int]:
+    evidence = item_dict.get("evidence")
+    if not evidence:
+        return item_dict, 0
+
+    rec_at = item_dict.get("received_at")
+    if rec_at:
+        try:
+            clean_rec = rec_at.replace("Z", "+00:00")
+            rec_dt = datetime.fromisoformat(clean_rec)
+        except Exception:
+            rec_dt = now_dt
+    else:
+        rec_dt = now_dt
+
+    ext_res = provider.extract(
+        text=evidence,
+        subject=item_dict.get("source_title"),
+        sender=item_dict.get("sender"),
+        received_at=rec_dt,
+        timezone_str=TIMEZONE,
+        now=now_dt,
+    )
+
+    raw_edited = item_dict.get("user_edited_fields")
+    try:
+        user_edited = set(json.loads(raw_edited)) if raw_edited else set()
+    except Exception:
+        user_edited = set()
+
+    changes = 0
+    now_iso = utc_now_iso()
+    item_id = item_dict["id"]
+    source_id = item_dict.get("source_id")
+
+    fields_to_check = [
+        ("title", ext_res.title, item_dict.get("title")),
+        ("item_type", ext_res.item_type.value, item_dict.get("item_type")),
+        ("kind", ext_res.kind.value, item_dict.get("kind")),
+        ("summary", ext_res.summary, item_dict.get("summary")),
+        ("deadline_text", ext_res.deadline_text, item_dict.get("deadline_text")),
+        ("deadline_at", ext_res.deadline_at, item_dict.get("deadline_at")),
+        ("deadline_status", ext_res.deadline_status.value, item_dict.get("deadline_status")),
+    ]
+
+    update_fields: List[str] = []
+    update_values: List[Any] = []
+
+    for field_name, new_val, old_val in fields_to_check:
+        if field_name not in user_edited and new_val != old_val:
+            changes += 1
+            item_dict[field_name] = new_val
+            update_fields.append(f"{field_name} = ?")
+            update_values.append(new_val)
+            conn.execute(
+                """
+                INSERT INTO item_events (item_id, at, kind, old_value, new_value, source_id)
+                VALUES (?, ?, ?, ?, ?, ?);
+                """,
+                (
+                    item_id,
+                    now_iso,
+                    f"reanalyzed_{field_name}",
+                    str(old_val) if old_val is not None else None,
+                    str(new_val) if new_val is not None else None,
+                    source_id,
+                ),
+            )
+
+    if ext_res.extraction_confidence != item_dict.get("extraction_confidence"):
+        item_dict["extraction_confidence"] = ext_res.extraction_confidence
+        update_fields.append("extraction_confidence = ?")
+        update_values.append(ext_res.extraction_confidence)
+
+    if changes > 0:
+        new_p, new_reason = recompute_priority(item_dict, now=now_dt)
+        item_dict["priority"] = new_p.value
+        item_dict["priority_reason"] = new_reason
+        item_dict["updated_at"] = now_iso
+
+        update_fields.extend(["priority = ?", "priority_reason = ?", "updated_at = ?"])
+        update_values.extend([new_p.value, new_reason, now_iso, item_id])
+
+        conn.execute(
+            f"UPDATE items SET {', '.join(update_fields)} WHERE id = ?;",
+            update_values,
+        )
+        conn.commit()
+
+    return item_dict, changes
+
+
+@app.post("/api/items/{item_id}/reanalyze", response_model=ItemResponse)
+def reanalyze_item(item_id: int) -> ItemResponse:
+    conn = get_connection()
+    try:
+        row = _fetch_item_or_404(conn, item_id)
+        now_dt = datetime.now(timezone.utc)
+        provider = RulesProvider()
+        _reanalyze_item_logic(conn, dict(row), provider, now_dt)
+        refetched = _fetch_item_or_404(conn, item_id)
+        return ItemResponse.from_row(refetched)
+    finally:
+        conn.close()
+
+
+@app.post("/api/reanalyze", response_model=ReanalyzeResultResponse)
+def reanalyze_all() -> ReanalyzeResultResponse:
+    conn = get_connection()
+    try:
+        now_dt = datetime.now(timezone.utc)
+        provider = RulesProvider()
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT * FROM items
+            WHERE is_demo = 0 AND state NOT IN ('completed', 'cancelled')
+            ORDER BY id ASC;
+            """
+        )
+        rows = [dict(r) for r in cur.fetchall()]
+
+        total = len(rows)
+        reanalyzed = 0
+        updated = 0
+        errors = 0
+
+        for r in rows:
+            reanalyzed += 1
+            try:
+                _, num_changes = _reanalyze_item_logic(conn, r, provider, now_dt)
+                if num_changes > 0:
+                    updated += 1
+            except Exception:
+                errors += 1
+
+        msg = f"Re-analyzed {reanalyzed} items: {updated} updated, {errors} errors."
+        return ReanalyzeResultResponse(
+            status="ok",
+            message=msg,
+            counts=ReanalyzeCounts(
+                total=total,
+                reanalyzed=reanalyzed,
+                updated=updated,
+                errors=errors,
+            ),
+        )
     finally:
         conn.close()

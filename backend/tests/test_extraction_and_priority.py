@@ -323,3 +323,295 @@ def test_seeded_demo_requirements(client_with_db):
     assert has_ambiguous, "Seeded demo must include at least one ambiguous item"
     assert has_info, "Seeded demo must include at least one information item"
 
+
+# =============================================================================
+# Requirement 9: Hardened Date/Time, Classification & Re-analyze Tests
+# =============================================================================
+
+@pytest.mark.parametrize(
+    "text,subject,expected_type,expected_kind,expected_status,expected_deadline_text,expected_utc,expected_actions,reason_keyword",
+    [
+        # 1. The failing input
+        (
+            "Hi Alex, You have received an interview invitation regarding your application for the SDE intern position at ExampleCo. Details Extracted: * Sender: Priya Sharma (hr@example.com) * Proposed Time: Friday, November 6, 2026, at 3:00 PM IST * Platform: https://meet.google.com/abc-defg-hij Best,",
+            "Interview Invitation",
+            ItemType.TASK,
+            ItemKind.INTERVIEW,
+            DeadlineStatus.CONFIRMED,
+            "Friday, November 6, 2026, at 3:00 PM IST",
+            "2026-11-06T09:30:00Z",
+            ["Confirm attendance"],
+            None,
+        ),
+        # 2. Weekday variants
+        (
+            "Interview with team on Fri, Nov 6, 2026 at 3 PM IST",
+            "Screening",
+            ItemType.TASK,
+            ItemKind.INTERVIEW,
+            DeadlineStatus.CONFIRMED,
+            "Fri, Nov 6, 2026 at 3 PM IST",
+            "2026-11-06T09:30:00Z",
+            ["Confirm attendance"],
+            None,
+        ),
+        (
+            "Meeting invitation: Friday, 6 November 2026, at 15:00 IST",
+            "Design review",
+            ItemType.TASK,
+            ItemKind.MEETING,
+            DeadlineStatus.CONFIRMED,
+            "Friday, 6 November 2026, at 15:00 IST",
+            "2026-11-06T09:30:00Z",
+            ["Confirm attendance"],
+            None,
+        ),
+        # 3. "3 PM" and "15:00" and "15:00 hrs"
+        (
+            "Project sync scheduled on November 6, 2026 at 3 PM IST",
+            "Project Sync",
+            ItemType.TASK,
+            ItemKind.MEETING,
+            DeadlineStatus.CONFIRMED,
+            "November 6, 2026 at 3 PM IST",
+            "2026-11-06T09:30:00Z",
+            ["Confirm attendance"],
+            None,
+        ),
+        (
+            "Project sync scheduled on November 6, 2026 at 15:00 IST",
+            "Project Sync",
+            ItemType.TASK,
+            ItemKind.MEETING,
+            DeadlineStatus.CONFIRMED,
+            "November 6, 2026 at 15:00 IST",
+            "2026-11-06T09:30:00Z",
+            ["Confirm attendance"],
+            None,
+        ),
+        (
+            "Project sync scheduled on November 6, 2026 at 15:00 hrs IST",
+            "Project Sync",
+            ItemType.TASK,
+            ItemKind.MEETING,
+            DeadlineStatus.CONFIRMED,
+            "November 6, 2026 at 15:00 hrs IST",
+            "2026-11-06T09:30:00Z",
+            ["Confirm attendance"],
+            None,
+        ),
+        # 4. Time range (start is event time, end is not a deadline)
+        (
+            "Interview scheduled for Friday, November 6, 2026 at 3:00-4:00 PM IST",
+            "Final Interview",
+            ItemType.TASK,
+            ItemKind.INTERVIEW,
+            DeadlineStatus.CONFIRMED,
+            "Friday, November 6, 2026 at 3:00-4:00 PM IST",
+            "2026-11-06T09:30:00Z",
+            ["Confirm attendance"],
+            None,
+        ),
+        # 5. EST timezone
+        (
+            "Assignment submission due Friday, November 6, 2026 at 3:00 PM EST",
+            "CS Assignment 3",
+            ItemType.TASK,
+            ItemKind.ASSIGNMENT,
+            DeadlineStatus.CONFIRMED,
+            "Friday, November 6, 2026 at 3:00 PM EST",
+            "2026-11-06T20:00:00Z",
+            [],
+            None,
+        ),
+        # 6. Weekday / date conflict -> ambiguous with "weekday and date conflict"
+        (
+            "Meeting scheduled for Monday, November 6, 2026 at 3:00 PM IST",
+            "Sync",
+            ItemType.TASK,
+            ItemKind.MEETING,
+            DeadlineStatus.AMBIGUOUS,
+            "Monday, November 6, 2026 at 3:00 PM IST",
+            None,
+            ["Confirm attendance"],
+            "weekday and date conflict",
+        ),
+        # 7. Missing year: confirmed with matching weekday within 12 months
+        (
+            "Interview scheduled for Friday, November 6 at 3:00 PM IST",
+            "Interview",
+            ItemType.TASK,
+            ItemKind.INTERVIEW,
+            DeadlineStatus.CONFIRMED,
+            "Friday, November 6 at 3:00 PM IST",
+            "2026-11-06T09:30:00Z",
+            ["Confirm attendance"],
+            None,
+        ),
+        # 8. Missing year without weekday -> ambiguous
+        (
+            "Submission due November 6 at 3:00 PM IST",
+            "Submission",
+            ItemType.TASK,
+            ItemKind.OTHER,
+            DeadlineStatus.AMBIGUOUS,
+            "November 6 at 3:00 PM IST",
+            None,
+            [],
+            "missing year",
+        ),
+        # 9. Two conflicting labeled dates -> ambiguous with candidates listed
+        (
+            "Homework 4. Due: November 10, 2026 at 5:00 PM EST. Final Deadline: November 15, 2026 at 5:00 PM EST.",
+            "Homework 4",
+            ItemType.TASK,
+            ItemKind.ASSIGNMENT,
+            DeadlineStatus.AMBIGUOUS,
+            "November 10, 2026 at 5:00 PM EST",
+            None,
+            [],
+            "conflicting labeled dates",
+        ),
+        # 10. Automated security notice staying information and normal priority
+        (
+            "Security alert: We noticed a new sign-in to your account on a Linux device at 10:00 AM UTC. If this was you, you can disregard this message.",
+            "Security alert: New sign-in",
+            ItemType.INFORMATION,
+            ItemKind.ANNOUNCEMENT,
+            DeadlineStatus.NONE,
+            None,
+            None,
+            [],
+            None,
+        ),
+    ],
+)
+def test_requirement9_extraction_table(
+    text,
+    subject,
+    expected_type,
+    expected_kind,
+    expected_status,
+    expected_deadline_text,
+    expected_utc,
+    expected_actions,
+    reason_keyword,
+):
+    provider = RulesProvider()
+    res = provider.extract(
+        text=text,
+        subject=subject,
+        received_at=FIXED_NOW,  # 2026-11-06 12:00:00 UTC
+        now=FIXED_NOW,
+    )
+    assert res.item_type == expected_type
+    assert res.kind == expected_kind
+    assert res.deadline_status == expected_status
+    if expected_deadline_text is not None:
+        assert res.deadline_text == expected_deadline_text
+    else:
+        assert res.deadline_text is None
+
+    if expected_utc:
+        assert res.deadline_at == expected_utc
+    else:
+        assert res.deadline_at is None
+
+    for action in expected_actions:
+        assert action in res.required_actions
+
+    if reason_keyword:
+        combined_reasons = " ".join(res.reasons).lower()
+        assert reason_keyword.lower() in combined_reasons
+
+
+def test_ist_meaning_env(monkeypatch):
+    provider = RulesProvider()
+    text = "Interview on Friday, November 6, 2026 at 3:00 PM IST"
+    subject = "Interview"
+
+    # 1. Default IST meaning is Asia/Kolkata (+05:30)
+    monkeypatch.setattr("app.config.DEFAULT_IST_MEANING", "Asia/Kolkata")
+    res1 = provider.extract(text=text, subject=subject, received_at=FIXED_NOW, now=FIXED_NOW)
+    assert res1.deadline_status == DeadlineStatus.CONFIRMED
+    assert res1.deadline_at == "2026-11-06T09:30:00Z"
+
+    # 2. When set to Europe/Dublin (in Nov, Dublin is standard GMT UTC+0)
+    monkeypatch.setattr("app.config.DEFAULT_IST_MEANING", "Europe/Dublin")
+    res2 = provider.extract(text=text, subject=subject, received_at=FIXED_NOW, now=FIXED_NOW)
+    assert res2.deadline_status == DeadlineStatus.CONFIRMED
+    assert res2.deadline_at == "2026-11-06T15:00:00Z"
+
+
+def test_past_interview_priority_not_overdue():
+    # Kinds interview/meeting/event after event passes must NOT say Overdue
+    # Reason: "Event time has passed", priority: normal
+    past_event_item = {
+        "kind": "interview",
+        "item_type": "task",
+        "deadline_status": "confirmed",
+        "deadline_at": (FIXED_NOW - timedelta(hours=3)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "state": "not_started",
+    }
+    p, reason = recompute_priority(past_event_item, now=FIXED_NOW)
+    assert p == Priority.NORMAL
+    assert "Event time has passed" in reason
+    assert "overdue" not in reason.lower()
+
+    # Contrast with assignment which keeps the Overdue rule
+    past_assignment_item = {
+        "kind": "assignment",
+        "item_type": "task",
+        "deadline_status": "confirmed",
+        "deadline_at": (FIXED_NOW - timedelta(hours=3)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "state": "not_started",
+    }
+    p_assn, reason_assn = recompute_priority(past_assignment_item, now=FIXED_NOW)
+    assert p_assn == Priority.URGENT
+    assert "Overdue" in reason_assn
+
+
+def test_reanalyze_endpoints_and_preserves_user_edits(client_with_db):
+    client = client_with_db
+
+    # Ingest an item with manual endpoint
+    ingest_payload = {
+        "source_title": "Original Interview Invitation",
+        "sender": "recruiter@example.com",
+        "text": "Proposed Time: Friday, November 6, 2026, at 3:00 PM IST on https://meet.google.com/xyz-123. Please confirm attendance.",
+    }
+    res = client.post("/api/ingest/manual", json=ingest_payload)
+    assert res.status_code == 201
+    item = res.json()["item"]
+    item_id = item["id"]
+    assert item["deadline_status"] == "confirmed"
+
+    # User manually edits title via PATCH
+    custom_title = "My Customized Interview Session Title"
+    patch_res = client.patch(f"/api/items/{item_id}", json={"title": custom_title})
+    assert patch_res.status_code == 200
+    patched_item = patch_res.json()
+    assert patched_item["title"] == custom_title
+    assert "title" in patched_item["user_edited_fields"]
+
+    # Call POST /api/items/{id}/reanalyze
+    reanalyze_res = client.post(f"/api/items/{item_id}/reanalyze")
+    assert reanalyze_res.status_code == 200
+    reanalyzed_item = reanalyze_res.json()
+
+    # User-edited title must be preserved
+    assert reanalyzed_item["title"] == custom_title
+    # Other fields are verified
+    assert reanalyzed_item["deadline_status"] == "confirmed"
+    assert reanalyzed_item["deadline_at"] == "2026-11-06T09:30:00Z"
+    assert reanalyzed_item["kind"] == "interview"
+
+    # Call POST /api/reanalyze (bulk reanalyze all)
+    all_res = client.post("/api/reanalyze")
+    assert all_res.status_code == 200
+    bulk_data = all_res.json()
+    assert bulk_data["status"] == "ok"
+    assert bulk_data["counts"]["total"] >= 1
+    assert bulk_data["counts"]["reanalyzed"] >= 1
+
+

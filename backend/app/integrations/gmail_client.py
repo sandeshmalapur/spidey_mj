@@ -14,7 +14,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from pydantic import BaseModel, Field
 
-from app.config import GMAIL_MAX_MESSAGES, GMAIL_QUERY, GMAIL_TOKEN_FILE
+import app.config
+from app.config import GMAIL_MAX_MESSAGES, GMAIL_QUERY
 
 
 class GmailAuthError(Exception):
@@ -93,7 +94,7 @@ class GmailClient(BaseGmailClient):
     """Production Gmail API client using authorized user token."""
 
     def __init__(self, token_path: Optional[str] = None) -> None:
-        self.token_path = Path(token_path or GMAIL_TOKEN_FILE)
+        self.token_path = Path(token_path or app.config.GMAIL_TOKEN_FILE)
         self._service: Any = None
 
     def _get_service(self) -> Any:

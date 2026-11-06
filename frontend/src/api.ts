@@ -132,4 +132,14 @@ export const api = {
     }),
 
   getSyncStatus: () => request<SyncStatus>('/api/sync/status'),
+
+  reanalyzeItem: (id: number) =>
+    request<Item>(`/api/items/${id}/reanalyze`, { method: 'POST' }),
+
+  reanalyzeAll: () =>
+    request<{
+      status: string;
+      message: string;
+      counts: { total: number; reanalyzed: number; updated: number; errors: number };
+    }>('/api/reanalyze', { method: 'POST' }),
 };

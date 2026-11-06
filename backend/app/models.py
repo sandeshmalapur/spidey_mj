@@ -129,6 +129,7 @@ class ItemResponse(BaseModel):
     created_at: str
     updated_at: str
     completed_at: Optional[str] = None
+    user_edited_fields: List[str] = Field(default_factory=list)
 
     @classmethod
     def from_row(cls, row: dict[str, Any]) -> "ItemResponse":
@@ -142,6 +143,17 @@ class ItemResponse(BaseModel):
             links_list = raw_links
         else:
             links_list = []
+
+        raw_edited = row.get("user_edited_fields")
+        if isinstance(raw_edited, str):
+            try:
+                edited_list = json.loads(raw_edited)
+            except Exception:
+                edited_list = []
+        elif isinstance(raw_edited, list):
+            edited_list = raw_edited
+        else:
+            edited_list = []
 
         override = row.get("priority_override")
         priority = row["priority"]
@@ -176,7 +188,21 @@ class ItemResponse(BaseModel):
             created_at=row["created_at"],
             updated_at=row["updated_at"],
             completed_at=row.get("completed_at"),
+            user_edited_fields=edited_list,
         )
+
+
+class ReanalyzeCounts(BaseModel):
+    total: int = 0
+    reanalyzed: int = 0
+    updated: int = 0
+    errors: int = 0
+
+
+class ReanalyzeResultResponse(BaseModel):
+    status: str
+    message: str
+    counts: ReanalyzeCounts = Field(default_factory=ReanalyzeCounts)
 
 
 class SyncCounts(BaseModel):

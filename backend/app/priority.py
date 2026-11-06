@@ -41,6 +41,11 @@ def recompute_priority(
     if isinstance(item_type, ItemType):
         item_type = item_type.value
 
+    kind = get_field("kind", "")
+    if hasattr(kind, "value"):
+        kind = kind.value
+    is_event = str(kind).lower() in ("interview", "meeting", "event")
+
     deadline_status = get_field("deadline_status", DeadlineStatus.NONE)
     if isinstance(deadline_status, DeadlineStatus):
         deadline_status = deadline_status.value
@@ -68,9 +73,13 @@ def recompute_priority(
             diff = deadline_dt - ref_now
 
             if diff.total_seconds() < 0:
+                if is_event:
+                    return Priority.NORMAL, "Event time has passed"
                 return Priority.URGENT, "Overdue"
             elif diff <= timedelta(hours=cfg.urgent_within_hours):
                 hours = max(1, int(diff.total_seconds() // 3600))
+                if is_event:
+                    return Priority.URGENT, f"Event starts within {hours} hours (under {cfg.urgent_within_hours}h threshold)"
                 return Priority.URGENT, f"Due within {hours} hours (under {cfg.urgent_within_hours}h threshold)"
             elif diff <= timedelta(days=cfg.important_within_days):
                 days = max(1, int(diff.days))

@@ -14,6 +14,7 @@ DEFAULT_DB_PATH = str(Path(__file__).resolve().parent.parent / "data" / "classma
 
 DATABASE_PATH = os.getenv("DATABASE_PATH", DEFAULT_DB_PATH)
 TIMEZONE = os.getenv("TIMEZONE", "UTC")
+DEFAULT_IST_MEANING = os.getenv("DEFAULT_IST_MEANING", "Asia/Kolkata")
 APP_VERSION = "0.5.0"
 
 # Priority engine demo defaults

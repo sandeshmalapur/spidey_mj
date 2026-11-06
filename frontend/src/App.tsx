@@ -86,6 +86,10 @@ export default function App() {
   const [syncing, setSyncing] = useState<boolean>(false);
   const [syncError, setSyncError] = useState<string | null>(null);
 
+  // Re-analyze state
+  const [reanalyzingAll, setReanalyzingAll] = useState<boolean>(false);
+  const [reanalyzingItem, setReanalyzingItem] = useState<boolean>(false);
+
   // Check health
   const checkHealth = async () => {
     try {
@@ -283,6 +287,43 @@ export default function App() {
     }
   };
 
+  // Re-analyze handlers
+  const handleReanalyzeAll = async () => {
+    setReanalyzingAll(true);
+    try {
+      setErrorMessage(null);
+      const res = await api.reanalyzeAll();
+      setActionSuccess(res.message);
+      setTimeout(() => setActionSuccess(null), 4000);
+      await loadItems();
+      if (selectedItem) {
+        // Refresh selected item from list if updated
+        const refreshed = await api.getItem(selectedItem.id);
+        setSelectedItem(refreshed);
+      }
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to re-analyze items');
+    } finally {
+      setReanalyzingAll(false);
+    }
+  };
+
+  const handleReanalyzeItem = async (itemId: number) => {
+    setReanalyzingItem(true);
+    try {
+      setErrorMessage(null);
+      const updatedItem = await api.reanalyzeItem(itemId);
+      setActionSuccess(`Re-analyzed item #${updatedItem.id}`);
+      setTimeout(() => setActionSuccess(null), 3500);
+      setSelectedItem(updatedItem);
+      await loadItems();
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to re-analyze item');
+    } finally {
+      setReanalyzingItem(false);
+    }
+  };
+
   // Open Edit Form
   const openEdit = (item: Item) => {
     setEditingItem(item);
@@ -453,6 +494,14 @@ export default function App() {
             title="Fetch recent messages from your Gmail inbox"
           >
             {syncing ? '⏳ Syncing Gmail...' : '📥 Sync Gmail now'}
+          </button>
+          <button
+            className="btn btn-outline"
+            onClick={handleReanalyzeAll}
+            disabled={reanalyzingAll}
+            title="Re-run extraction rules on all active items"
+          >
+            {reanalyzingAll ? '⏳ Re-analyzing...' : '🔄 Re-analyze all'}
           </button>
         </div>
         <div className="toolbar-right">
@@ -816,6 +865,15 @@ export default function App() {
                       Reopen
                     </button>
                   )}
+
+                  <button
+                    className="btn btn-outline btn-sm"
+                    onClick={() => handleReanalyzeItem(selectedItem.id)}
+                    disabled={reanalyzingItem}
+                    title="Re-run extraction on evidence"
+                  >
+                    {reanalyzingItem ? '⏳ Re-analyzing...' : '🔄 Re-analyze'}
+                  </button>
 
                   <button
                     className="btn btn-outline btn-sm"
