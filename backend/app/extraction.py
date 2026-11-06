@@ -294,7 +294,7 @@ class RulesProvider(ExtractionProvider):
         # Kind determination
         if any(w in combined for w in ["assignment", "homework", "problem set", "pset", "gradescope", "lab report"]):
             kind = ItemKind.ASSIGNMENT
-        elif any(w in combined for w in ["technical screen", "coding interview", "phone screen", "interview invitation", "schedule your interview"]):
+        elif any(w in combined for w in ["interview", "technical screen", "coding interview", "phone screen", "interview invitation", "schedule your interview", "interview scheduling"]):
             kind = ItemKind.INTERVIEW
         elif any(w in combined for w in ["recruiter", "talent acquisition", "careers", "internship application"]):
             kind = ItemKind.RECRUITER
@@ -337,3 +337,4 @@ class RulesProvider(ExtractionProvider):
             reasons.append("No actionable requests or deadlines identified; categorized as information.")
 
         return item_type, kind, actions, reasons
+

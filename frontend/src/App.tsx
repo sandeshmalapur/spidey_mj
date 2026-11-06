@@ -31,6 +31,21 @@ function formatDateTimeWithTz(dateStr: string | null | undefined): string {
   }
 }
 
+function formatKind(kind: string): string {
+  const map: Record<string, string> = {
+    assignment: 'Assignment',
+    announcement: 'Announcement',
+    recruiter: 'Recruiter',
+    interview: 'Interview',
+    document_request: 'Document request',
+    event: 'Event',
+    meeting: 'Meeting',
+    routine: 'Routine',
+    other: 'Other',
+  };
+  return map[kind] || kind.replace(/_/g, ' ');
+}
+
 export default function App() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [healthError, setHealthError] = useState<string | null>(null);
@@ -60,7 +75,6 @@ export default function App() {
   const [editItemType, setEditItemType] = useState<ItemType>('task');
 
   // Manual paste state
-  const [pasteTitle, setPasteTitle] = useState('');
   const [pasteSourceTitle, setPasteSourceTitle] = useState('');
   const [pasteSender, setPasteSender] = useState('');
   const [pasteEvidence, setPasteEvidence] = useState('');
@@ -286,42 +300,37 @@ export default function App() {
     }
   };
 
-  // Handle Manual Paste Submission
+  // Handle Manual Paste Submission (Milestone 4: runs rules extraction & priority engine)
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!pasteTitle.trim() || !pasteEvidence.trim()) {
-      setErrorMessage('Title and Source text are required.');
+    if (!pasteEvidence.trim()) {
+      setErrorMessage('Pasted text is required.');
       return;
     }
 
     setPasteSubmitting(true);
     setErrorMessage(null);
     try {
-      const uniqueSourceId = `manual-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-      await api.createItem({
-        title: pasteTitle.trim(),
-        source_title: pasteSourceTitle.trim() || null,
-        sender: pasteSender.trim() || null,
-        evidence: pasteEvidence.trim(),
-        source_type: 'manual',
-        source_id: uniqueSourceId,
-        state: 'needs_review',
-        priority: 'normal',
-        item_type: 'task',
-        kind: 'other',
-        summary: 'Manually pasted item (awaiting analysis)',
+      const res = await api.ingestManual({
+        source_title: pasteSourceTitle.trim() || undefined,
+        sender: pasteSender.trim() || undefined,
+        text: pasteEvidence.trim(),
       });
 
       setShowPasteModal(false);
-      setPasteTitle('');
       setPasteSourceTitle('');
       setPasteSender('');
       setPasteEvidence('');
-      setActionSuccess('Manual item created successfully.');
-      setTimeout(() => setActionSuccess(null), 3000);
+      if (res.duplicate) {
+        setActionSuccess(`Already imported: "${res.item.title}"`);
+      } else {
+        setActionSuccess(`Imported & analyzed: "${res.item.title}" (${res.item.priority.toUpperCase()})`);
+      }
+      setTimeout(() => setActionSuccess(null), 4000);
       await loadItems();
+      setSelectedItem(res.item);
     } catch (err: unknown) {
-      setErrorMessage(err instanceof Error ? err.message : 'Failed to create manual item');
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to ingest manual item');
     } finally {
       setPasteSubmitting(false);
     }
@@ -529,7 +538,7 @@ export default function App() {
                           Override
                         </span>
                       )}
-                      <span className="badge badge-kind">{item.kind}</span>
+                      <span className="badge badge-kind">{formatKind(item.kind)}</span>
                       <span className="badge badge-state">{item.state.replace('_', ' ')}</span>
                       {item.is_demo && <span className="badge badge-demo">DEMO</span>}
                       {item.acknowledged_at && (
@@ -578,174 +587,184 @@ export default function App() {
         </main>
 
         {/* Detail Panel */}
-        {selectedItem && (
-          <aside className="detail-panel">
-            <div className="panel-header">
-              <h2>Item Details</h2>
-              <button
-                className="btn-icon"
-                onClick={() => setSelectedItem(null)}
-                aria-label="Close detail panel"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="panel-content">
-              <div className="panel-title-area">
-                <h3>{selectedItem.title}</h3>
-                <div className="card-badges">
-                  <span
-                    className={`badge badge-priority badge-${selectedItem.effective_priority}`}
-                  >
-                    {selectedItem.effective_priority.toUpperCase()}
-                  </span>
-                  <span className="badge badge-kind">{selectedItem.kind}</span>
-                  <span className="badge badge-state">{selectedItem.state.replace('_', ' ')}</span>
-                  {selectedItem.is_demo && <span className="badge badge-demo">DEMO</span>}
-                  {selectedItem.acknowledged_at && (
-                    <span className="badge badge-ack">✓ Acknowledged</span>
-                  )}
-                  {selectedItem.snoozed_until && (
-                    <span className="badge badge-snooze">⏰ Snoozed</span>
-                  )}
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="action-button-group">
-                {!selectedItem.acknowledged_at && (
-                  <button
-                    className="btn btn-secondary btn-sm"
-                    onClick={() =>
-                      runAction(
-                        () => api.acknowledgeItem(selectedItem.id),
-                        `Acknowledged item #${selectedItem.id}`
-                      )
-                    }
-                  >
-                    Acknowledge
-                  </button>
-                )}
-
-                {/* Snooze Presets */}
-                <div className="snooze-dropdown">
-                  <span className="dropdown-label">Snooze:</span>
-                  <button
-                    className="btn btn-outline btn-xs"
-                    onClick={() => handleSnooze(selectedItem, 1)}
-                  >
-                    1h
-                  </button>
-                  <button
-                    className="btn btn-outline btn-xs"
-                    onClick={() => handleSnooze(selectedItem, 4)}
-                  >
-                    4h
-                  </button>
-                  <button
-                    className="btn btn-outline btn-xs"
-                    onClick={() => handleSnooze(selectedItem, 'tomorrow')}
-                  >
-                    Tomorrow 9am
-                  </button>
-                </div>
-
-                {/* State Transitions */}
-                {(selectedItem.state === 'needs_review' ||
-                  selectedItem.state === 'not_started') && (
-                  <button
-                    className="btn btn-primary btn-sm"
-                    onClick={() =>
-                      runAction(
-                        () => api.startItem(selectedItem.id),
-                        `Started item #${selectedItem.id}`
-                      )
-                    }
-                  >
-                    Start
-                  </button>
-                )}
-
-                {(selectedItem.state === 'not_started' ||
-                  selectedItem.state === 'in_progress') && (
-                  <button
-                    className="btn btn-success btn-sm"
-                    onClick={() =>
-                      runAction(
-                        () => api.completeItem(selectedItem.id),
-                        `Completed item #${selectedItem.id}`
-                      )
-                    }
-                  >
-                    Complete
-                  </button>
-                )}
-
-                {selectedItem.state !== 'completed' && selectedItem.state !== 'cancelled' && (
-                  <button
-                    className="btn btn-outline btn-danger btn-sm"
-                    onClick={() =>
-                      runAction(
-                        () => api.cancelItem(selectedItem.id),
-                        `Cancelled item #${selectedItem.id}`
-                      )
-                    }
-                  >
-                    Cancel
-                  </button>
-                )}
-
-                {(selectedItem.state === 'completed' || selectedItem.state === 'cancelled') && (
-                  <button
-                    className="btn btn-secondary btn-sm"
-                    onClick={() =>
-                      runAction(
-                        () => api.reopenItem(selectedItem.id),
-                        `Reopened item #${selectedItem.id}`
-                      )
-                    }
-                  >
-                    Reopen
-                  </button>
-                )}
-
+        {selectedItem && (() => {
+          const isClosed = selectedItem.state === 'completed' || selectedItem.state === 'cancelled';
+          return (
+            <aside className="detail-panel">
+              <div className="panel-header">
+                <h2>Item Details</h2>
                 <button
-                  className="btn btn-outline btn-sm"
-                  onClick={() => openEdit(selectedItem)}
+                  className="btn-icon"
+                  onClick={() => setSelectedItem(null)}
+                  aria-label="Close detail panel"
                 >
-                  Edit Item
+                  ✕
                 </button>
               </div>
 
-              {/* Detail fields */}
-              <div className="detail-metadata">
-                <p>
-                  <strong>Type:</strong> {selectedItem.item_type}
-                </p>
-                <p>
-                  <strong>Priority:</strong> {selectedItem.priority}
-                  {selectedItem.priority_override && (
-                    <span className="override-indicator">
-                      {' '}
-                      (Override: {selectedItem.priority_override})
+              <div className="panel-content">
+                <div className="panel-title-area">
+                  <h3>{selectedItem.title}</h3>
+                  <div className="card-badges">
+                    <span
+                      className={`badge badge-priority badge-${selectedItem.effective_priority}`}
+                    >
+                      {selectedItem.effective_priority.toUpperCase()}
                     </span>
+                    <span className="badge badge-kind">{formatKind(selectedItem.kind)}</span>
+                    <span className="badge badge-state">{selectedItem.state.replace('_', ' ')}</span>
+                    {selectedItem.is_demo && <span className="badge badge-demo">DEMO</span>}
+                    {selectedItem.acknowledged_at && (
+                      <span className="badge badge-ack">✓ Acknowledged</span>
+                    )}
+                    {selectedItem.snoozed_until && (
+                      <span className="badge badge-snooze">⏰ Snoozed</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="action-button-group">
+                  {!isClosed && !selectedItem.acknowledged_at && (
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() =>
+                        runAction(
+                          () => api.acknowledgeItem(selectedItem.id),
+                          `Acknowledged item #${selectedItem.id}`
+                        )
+                      }
+                    >
+                      Acknowledge
+                    </button>
                   )}
-                </p>
-                {selectedItem.priority_reason && (
+
+                  {/* Snooze Presets - Hidden for completed/cancelled */}
+                  {!isClosed && (
+                    <div className="snooze-dropdown">
+                      <span className="dropdown-label">Snooze:</span>
+                      <button
+                        className="btn btn-outline btn-xs"
+                        onClick={() => handleSnooze(selectedItem, 1)}
+                      >
+                        1h
+                      </button>
+                      <button
+                        className="btn btn-outline btn-xs"
+                        onClick={() => handleSnooze(selectedItem, 4)}
+                      >
+                        4h
+                      </button>
+                      <button
+                        className="btn btn-outline btn-xs"
+                        onClick={() => handleSnooze(selectedItem, 'tomorrow')}
+                      >
+                        Tomorrow 9am
+                      </button>
+                    </div>
+                  )}
+
+                  {/* State Transitions */}
+                  {(selectedItem.state === 'needs_review' ||
+                    selectedItem.state === 'not_started') && (
+                    <button
+                      className="btn btn-primary btn-sm"
+                      onClick={() =>
+                        runAction(
+                          () => api.startItem(selectedItem.id),
+                          `Started item #${selectedItem.id}`
+                        )
+                      }
+                    >
+                      Start
+                    </button>
+                  )}
+
+                  {(selectedItem.state === 'not_started' ||
+                    selectedItem.state === 'in_progress') && (
+                    <button
+                      className="btn btn-success btn-sm"
+                      onClick={() =>
+                        runAction(
+                          () => api.completeItem(selectedItem.id),
+                          `Completed item #${selectedItem.id}`
+                        )
+                      }
+                    >
+                      Complete
+                    </button>
+                  )}
+
+                  {selectedItem.state !== 'completed' && selectedItem.state !== 'cancelled' && (
+                    <button
+                      className="btn btn-outline btn-danger btn-sm"
+                      onClick={() =>
+                        runAction(
+                          () => api.cancelItem(selectedItem.id),
+                          `Cancelled item #${selectedItem.id}`
+                        )
+                      }
+                    >
+                      Cancel
+                    </button>
+                  )}
+
+                  {(selectedItem.state === 'completed' || selectedItem.state === 'cancelled') && (
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() =>
+                        runAction(
+                          () => api.reopenItem(selectedItem.id),
+                          `Reopened item #${selectedItem.id}`
+                        )
+                      }
+                    >
+                      Reopen
+                    </button>
+                  )}
+
+                  <button
+                    className="btn btn-outline btn-sm"
+                    onClick={() => openEdit(selectedItem)}
+                  >
+                    Edit Item
+                  </button>
+                </div>
+
+                {/* Detail fields */}
+                <div className="detail-metadata">
                   <p>
-                    <strong>Priority Reason:</strong> {selectedItem.priority_reason}
+                    <strong>Type:</strong> {selectedItem.item_type}
                   </p>
-                )}
-                <p>
-                  <strong>Deadline Text:</strong> {selectedItem.deadline_text || 'None'}
-                </p>
-                <p>
-                  <strong>Deadline Status:</strong> {selectedItem.deadline_status}
-                  {selectedItem.deadline_status === 'ambiguous' && (
-                    <span className="badge badge-warning"> Needs confirmation</span>
+                  <p>
+                    <strong>Kind:</strong> {formatKind(selectedItem.kind)}
+                  </p>
+                  <p>
+                    <strong>Confidence:</strong> {(selectedItem.extraction_confidence * 100).toFixed(0)}%
+                  </p>
+                  <p>
+                    <strong>Priority:</strong> {selectedItem.priority}
+                    {selectedItem.priority_override && (
+                      <span className="override-indicator">
+                        {' '}
+                        (Override: {selectedItem.priority_override})
+                      </span>
+                    )}
+                  </p>
+                  {selectedItem.priority_reason && (
+                    <p>
+                      <strong>Priority Reason:</strong> {selectedItem.priority_reason}
+                    </p>
                   )}
-                </p>
+                  <p>
+                    <strong>Deadline Text:</strong> {selectedItem.deadline_text || 'None'}
+                  </p>
+                  <p>
+                    <strong>Deadline Status:</strong> {selectedItem.deadline_status}
+                    {selectedItem.deadline_status === 'ambiguous' && (
+                      <span className="badge badge-warning"> Needs confirmation</span>
+                    )}
+                  </p>
                 {selectedItem.deadline_at && (
                   <p>
                     <strong>Deadline Time:</strong>{' '}
@@ -820,7 +839,7 @@ export default function App() {
               </div>
             </div>
           </aside>
-        )}
+        );})()}
       </div>
 
       {/* Edit Form Modal */}
@@ -950,38 +969,21 @@ export default function App() {
               </button>
             </div>
 
-            <div className="extraction-notice">
-              ℹ️ <strong>Note:</strong> Not yet analyzed (extraction arrives in a later milestone).
-              This item will be saved for review.
-            </div>
-
             <form onSubmit={handleManualSubmit} className="form">
-              <div className="form-group">
-                <label htmlFor="paste-title">Item Title *</label>
-                <input
-                  id="paste-title"
-                  type="text"
-                  required
-                  placeholder="e.g. Math 201 Homework 2 or Career Fair Invitation"
-                  value={pasteTitle}
-                  onChange={(e) => setPasteTitle(e.target.value)}
-                />
-              </div>
-
               <div className="form-row">
                 <div className="form-group">
-                  <label htmlFor="paste-source">Source Title / Course</label>
+                  <label htmlFor="paste-source">Source Title / Course (optional)</label>
                   <input
                     id="paste-source"
                     type="text"
-                    placeholder="e.g. Math 201 or Campus Life"
+                    placeholder="e.g. CS 101 or Initech Careers"
                     value={pasteSourceTitle}
                     onChange={(e) => setPasteSourceTitle(e.target.value)}
                   />
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="paste-sender">Sender Email / Name</label>
+                  <label htmlFor="paste-sender">Sender Email / Name (optional)</label>
                   <input
                     id="paste-sender"
                     type="text"
@@ -998,7 +1000,7 @@ export default function App() {
                   id="paste-evidence"
                   rows={8}
                   required
-                  placeholder="Paste the raw email or classroom announcement text here..."
+                  placeholder="Paste the raw email, notification, or classroom announcement text here..."
                   value={pasteEvidence}
                   onChange={(e) => setPasteEvidence(e.target.value)}
                 ></textarea>
@@ -1013,7 +1015,7 @@ export default function App() {
                   Cancel
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={pasteSubmitting}>
-                  {pasteSubmitting ? 'Creating...' : 'Save Manual Item'}
+                  {pasteSubmitting ? 'Analyzing & Ingesting...' : 'Analyze & Ingest'}
                 </button>
               </div>
             </form>

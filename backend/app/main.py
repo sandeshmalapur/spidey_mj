@@ -1,14 +1,17 @@
+import hashlib
 import json
 import sqlite3
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from typing import Any, List, Optional
-from fastapi import FastAPI, HTTPException, Query, status
+from fastapi import FastAPI, HTTPException, Query, Response, status
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-from app.config import ALLOWED_ORIGINS, APP_VERSION
+from app.config import ALLOWED_ORIGINS, APP_VERSION, TIMEZONE
 from app.db import check_db_health, get_connection, init_db, utc_now_iso
-from app.demo_data import DEMO_ITEMS
+from app.demo_data import get_demo_items
+from app.extraction import RulesProvider
 from app.models import (
     DeadlineStatus,
     ItemCreate,
@@ -21,12 +24,25 @@ from app.models import (
     SnoozeRequest,
     SourceType,
 )
+from app.priority import recompute_priority
 
 
 class HealthResponse(BaseModel):
     status: str
     db: str
     version: str
+
+
+class ManualIngestRequest(BaseModel):
+    source_title: Optional[str] = Field(default=None, max_length=500)
+    sender: Optional[str] = Field(default=None, max_length=500)
+    text: str = Field(..., min_length=1, max_length=20000)
+    received_at: Optional[str] = None
+
+
+class IngestResponse(BaseModel):
+    duplicate: bool
+    item: ItemResponse
 
 
 @asynccontextmanager
@@ -63,6 +79,21 @@ def _fetch_item_or_404(conn: sqlite3.Connection, item_id: int) -> dict[str, Any]
     return dict(row)
 
 
+def _recompute_and_persist_priority(conn: sqlite3.Connection, row_dict: dict[str, Any], now: datetime) -> dict[str, Any]:
+    new_priority, new_reason = recompute_priority(row_dict, now=now)
+    if row_dict.get("priority") != new_priority.value or row_dict.get("priority_reason") != new_reason:
+        now_iso = utc_now_iso()
+        conn.execute(
+            "UPDATE items SET priority = ?, priority_reason = ?, updated_at = ? WHERE id = ?;",
+            (new_priority.value, new_reason, now_iso, row_dict["id"]),
+        )
+        conn.commit()
+        row_dict["priority"] = new_priority.value
+        row_dict["priority_reason"] = new_reason
+        row_dict["updated_at"] = now_iso
+    return row_dict
+
+
 @app.get("/")
 def read_root():
     return {
@@ -97,32 +128,36 @@ def get_items(
 ) -> List[ItemResponse]:
     conn = get_connection()
     try:
-        query = "SELECT * FROM items WHERE 1=1"
-        params: List[Any] = []
-
-        if priority is not None:
-            query += " AND COALESCE(priority_override, priority) = ?"
-            params.append(priority.value)
-
-        if state is not None:
-            query += " AND state = ?"
-            params.append(state.value)
-
-        if item_type is not None:
-            query += " AND item_type = ?"
-            params.append(item_type.value)
-
-        if not include_snoozed:
-            now_iso = utc_now_iso()
-            query += " AND (snoozed_until IS NULL OR snoozed_until <= ?)"
-            params.append(now_iso)
-
-        query += " ORDER BY id DESC;"
-
+        now_dt = datetime.now(timezone.utc)
         cur = conn.cursor()
-        cur.execute(query, params)
-        rows = cur.fetchall()
-        return [ItemResponse.from_row(dict(r)) for r in rows]
+        cur.execute("SELECT * FROM items;")
+        all_rows = [dict(r) for r in cur.fetchall()]
+
+        # Recompute dynamic priorities and persist if changed
+        updated_rows = []
+        for r in all_rows:
+            updated = _recompute_and_persist_priority(conn, r, now_dt)
+            updated_rows.append(updated)
+
+        # Apply filtering
+        now_iso = utc_now_iso()
+        filtered = []
+        for r in updated_rows:
+            eff_p = r.get("priority_override") or r["priority"]
+            if priority is not None and eff_p != priority.value:
+                continue
+            if state is not None and r["state"] != state.value:
+                continue
+            if item_type is not None and r["item_type"] != item_type.value:
+                continue
+            if not include_snoozed and r.get("snoozed_until"):
+                if r["snoozed_until"] > now_iso:
+                    continue
+            filtered.append(r)
+
+        # Sort by id descending
+        filtered.sort(key=lambda x: x["id"], reverse=True)
+        return [ItemResponse.from_row(r) for r in filtered]
     finally:
         conn.close()
 
@@ -132,6 +167,7 @@ def get_item(item_id: int) -> ItemResponse:
     conn = get_connection()
     try:
         row = _fetch_item_or_404(conn, item_id)
+        row = _recompute_and_persist_priority(conn, row, datetime.now(timezone.utc))
         return ItemResponse.from_row(row)
     finally:
         conn.close()
@@ -142,9 +178,10 @@ def create_item(payload: ItemCreate) -> ItemResponse:
     conn = get_connection()
     try:
         now_iso = utc_now_iso()
+        now_dt = datetime.now(timezone.utc)
         links_json = json.dumps(payload.links)
 
-        # Check existing unique constraint before insert for early 409
+        # Check existing unique constraint
         if payload.source_id is not None:
             cur = conn.cursor()
             cur.execute(
@@ -156,6 +193,11 @@ def create_item(payload: ItemCreate) -> ItemResponse:
                     status_code=status.HTTP_409_CONFLICT,
                     detail=f"Item with source_type '{payload.source_type.value}' and source_id '{payload.source_id}' already exists.",
                 )
+
+        # Recompute priority with engine
+        computed_priority, computed_reason = recompute_priority(payload, now=now_dt)
+        actual_priority = payload.priority if payload.priority != Priority.NORMAL else computed_priority
+        actual_reason = payload.priority_reason or computed_reason
 
         cur = conn.cursor()
         try:
@@ -178,8 +220,8 @@ def create_item(payload: ItemCreate) -> ItemResponse:
                     payload.item_type.value,
                     payload.kind.value,
                     payload.summary,
-                    payload.priority.value,
-                    payload.priority_reason,
+                    actual_priority.value,
+                    actual_reason,
                     payload.priority_override.value if payload.priority_override else None,
                     payload.extraction_confidence,
                     payload.state.value,
@@ -213,16 +255,108 @@ def create_item(payload: ItemCreate) -> ItemResponse:
         conn.close()
 
 
+@app.post("/api/ingest/manual", response_model=IngestResponse)
+def ingest_manual(payload: ManualIngestRequest, response: Response) -> IngestResponse:
+    conn = get_connection()
+    try:
+        now_dt = datetime.now(timezone.utc)
+        now_iso = utc_now_iso()
+
+        # Deterministic source_id calculation
+        norm_key = f"{payload.sender or ''}|{payload.source_title or ''}|{payload.text.strip()}"
+        source_id = hashlib.sha256(norm_key.encode("utf-8")).hexdigest()
+
+        # Check duplicate
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT * FROM items WHERE source_type = 'manual' AND source_id = ?;",
+            (source_id,),
+        )
+        existing = cur.fetchone()
+        if existing is not None:
+            response.status_code = status.HTTP_200_OK
+            existing_dict = _recompute_and_persist_priority(conn, dict(existing), now_dt)
+            return IngestResponse(duplicate=True, item=ItemResponse.from_row(existing_dict))
+
+        # Extract using RulesProvider
+        provider = RulesProvider()
+        ext_res = provider.extract(
+            text=payload.text,
+            subject=payload.source_title,
+            sender=payload.sender,
+            received_at=now_dt,
+            timezone_str=TIMEZONE,
+            now=now_dt,
+        )
+
+        # Priority calculation
+        priority, priority_reason = recompute_priority(ext_res, now=now_dt)
+
+        # Initial state: needs_review if ambiguous deadline or confidence < 0.5; otherwise not_started
+        if ext_res.deadline_status == DeadlineStatus.AMBIGUOUS or ext_res.extraction_confidence < 0.5:
+            initial_state = ItemState.NEEDS_REVIEW
+        else:
+            initial_state = ItemState.NOT_STARTED
+
+        links_json = json.dumps(ext_res.links)
+
+        cur.execute(
+            """
+            INSERT INTO items (
+                title, item_type, kind, summary, priority, priority_reason, priority_override,
+                extraction_confidence, state, deadline_text, deadline_at, deadline_status,
+                links, source_type, source_id, source_title, sender, received_at, evidence,
+                is_demo, created_at, updated_at
+            ) VALUES (
+                ?, ?, ?, ?, ?, ?, ?,
+                ?, ?, ?, ?, ?,
+                ?, ?, ?, ?, ?, ?, ?,
+                ?, ?, ?
+            );
+            """,
+            (
+                ext_res.title,
+                ext_res.item_type.value,
+                ext_res.kind.value,
+                ext_res.summary,
+                priority.value,
+                priority_reason,
+                None,
+                ext_res.extraction_confidence,
+                initial_state.value,
+                ext_res.deadline_text,
+                ext_res.deadline_at,
+                ext_res.deadline_status.value,
+                links_json,
+                "manual",
+                source_id,
+                payload.source_title,
+                payload.sender,
+                payload.received_at or now_iso,
+                payload.text,
+                0,
+                now_iso,
+                now_iso,
+            ),
+        )
+        conn.commit()
+        new_id = cur.lastrowid
+        response.status_code = status.HTTP_201_CREATED
+        new_row = _fetch_item_or_404(conn, new_id)
+        return IngestResponse(duplicate=False, item=ItemResponse.from_row(new_row))
+    finally:
+        conn.close()
+
+
 @app.patch("/api/items/{item_id}", response_model=ItemResponse)
 def patch_item(item_id: int, payload: ItemUpdate) -> ItemResponse:
     conn = get_connection()
     try:
-        _fetch_item_or_404(conn, item_id)
+        existing = _fetch_item_or_404(conn, item_id)
         update_data = payload.model_dump(exclude_unset=True)
 
         if not update_data:
-            row = _fetch_item_or_404(conn, item_id)
-            return ItemResponse.from_row(row)
+            return ItemResponse.from_row(existing)
 
         fields: List[str] = []
         values: List[Any] = []
@@ -245,6 +379,7 @@ def patch_item(item_id: int, payload: ItemUpdate) -> ItemResponse:
         conn.commit()
 
         row = _fetch_item_or_404(conn, item_id)
+        row = _recompute_and_persist_priority(conn, row, datetime.now(timezone.utc))
         return ItemResponse.from_row(row)
     finally:
         conn.close()
@@ -262,6 +397,7 @@ def acknowledge_item(item_id: int) -> ItemResponse:
         )
         conn.commit()
         row = _fetch_item_or_404(conn, item_id)
+        row = _recompute_and_persist_priority(conn, row, datetime.now(timezone.utc))
         return ItemResponse.from_row(row)
     finally:
         conn.close()
@@ -279,6 +415,7 @@ def snooze_item(item_id: int, payload: SnoozeRequest) -> ItemResponse:
         )
         conn.commit()
         row = _fetch_item_or_404(conn, item_id)
+        row = _recompute_and_persist_priority(conn, row, datetime.now(timezone.utc))
         return ItemResponse.from_row(row)
     finally:
         conn.close()
@@ -296,6 +433,7 @@ def start_item(item_id: int) -> ItemResponse:
         )
         conn.commit()
         row = _fetch_item_or_404(conn, item_id)
+        row = _recompute_and_persist_priority(conn, row, datetime.now(timezone.utc))
         return ItemResponse.from_row(row)
     finally:
         conn.close()
@@ -313,6 +451,7 @@ def complete_item(item_id: int) -> ItemResponse:
         )
         conn.commit()
         row = _fetch_item_or_404(conn, item_id)
+        row = _recompute_and_persist_priority(conn, row, datetime.now(timezone.utc))
         return ItemResponse.from_row(row)
     finally:
         conn.close()
@@ -330,6 +469,7 @@ def cancel_item(item_id: int) -> ItemResponse:
         )
         conn.commit()
         row = _fetch_item_or_404(conn, item_id)
+        row = _recompute_and_persist_priority(conn, row, datetime.now(timezone.utc))
         return ItemResponse.from_row(row)
     finally:
         conn.close()
@@ -347,6 +487,7 @@ def reopen_item(item_id: int) -> ItemResponse:
         )
         conn.commit()
         row = _fetch_item_or_404(conn, item_id)
+        row = _recompute_and_persist_priority(conn, row, datetime.now(timezone.utc))
         return ItemResponse.from_row(row)
     finally:
         conn.close()
@@ -356,17 +497,23 @@ def reopen_item(item_id: int) -> ItemResponse:
 def seed_demo():
     conn = get_connection()
     try:
+        now_dt = datetime.now(timezone.utc)
         now_iso = utc_now_iso()
         cur = conn.cursor()
         seeded_count = 0
 
-        for item in DEMO_ITEMS:
+        demo_items = get_demo_items(now_dt)
+
+        for item in demo_items:
             cur.execute(
                 "SELECT id FROM items WHERE source_type = ? AND source_id = ?;",
                 (item["source_type"], item["source_id"]),
             )
             if cur.fetchone() is not None:
                 continue
+
+            # Compute priority through the priority engine
+            p, reason = recompute_priority(item, now=now_dt)
 
             links_json = json.dumps(item.get("links", []))
             cur.execute(
@@ -388,8 +535,8 @@ def seed_demo():
                     item["item_type"],
                     item["kind"],
                     item.get("summary"),
-                    item["priority"],
-                    item.get("priority_reason"),
+                    p.value,
+                    reason,
                     item.get("priority_override"),
                     item.get("extraction_confidence", 1.0),
                     item["state"],

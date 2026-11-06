@@ -76,6 +76,17 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  ingestManual: (data: {
+    source_title?: string;
+    sender?: string;
+    text: string;
+    received_at?: string;
+  }) =>
+    request<{ duplicate: boolean; item: Item }>('/api/ingest/manual', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
   patchItem: (id: number, data: ItemUpdateParams) =>
     request<Item>(`/api/items/${id}`, {
       method: 'PATCH',
